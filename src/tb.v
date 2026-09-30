@@ -349,6 +349,20 @@ module tb;
         wait_for_out(8'h01, 500);
         check(8'h01, uo_out[0], "I2C first data bit = 1");
 
+        // ---- Test 17: loop wrap ----
+        $display("\n[Test 17] loop wrap");
+        reset_dut();
+        write_cfg(5'd3, 8'd1);      // cfg_wrap_top = 1
+        write_cfg(5'd4, 8'd0);      // cfg_wrap_bottom = 0
+        prog[0] = 16'h80F0;         // SET pins = 0xF
+        prog[1] = 16'h8000;         // SET pins = 0x0
+        prog[2] = 16'h0000;         // NOP after wrap target
+        load_prog(3);
+        wait_for_out(8'h0F, 500);
+        wait_for_out(8'h00, 500);
+        wait_for_out(8'h0F, 500);
+        check(8'h0F, uo_out, "wrap from 1 back to 0");
+
         // ---- Summary ----
         $display("\n==========================================");
         $display(" Results: %0d passed, %0d failed",

@@ -801,7 +801,7 @@ A condensed list. The project currently meets the core protocol-emulation requir
 - [x] Level detection in WAIT
 - [x] Atomic multi-pin sampling (SAMPLE)
 - [x] 5-bit jump target
-- [ ] Loop wrap mechanism (registers defined, not used)
+- [x] Loop wrap mechanism
 - [ ] IRQ support (currently NOP)
 - [ ] Host FIFO interface
 

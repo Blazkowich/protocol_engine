@@ -150,6 +150,7 @@ module tt_um_protocol_engine (
     localparam OP_SAMPLE = 4'hC;
     localparam OP_HALT   = 4'hF;
 
+    reg [4:0] pc_target;
     reg [7:0] next_pin_out;
 
     integer i;
@@ -235,6 +236,7 @@ module tt_um_protocol_engine (
                     end
 
                     S_EXEC: begin
+                        pc_target = pc;
                         next_pin_out = pin_out;
 
                         if (side_mask != 4'b0000 &&
@@ -247,38 +249,38 @@ module tt_um_protocol_engine (
                         next_state = S_FETCH;
 
                         case (opcode)
-                            OP_NOP: pc <= pc + 1'b1;
+                            OP_NOP: pc_target = pc + 1'b1;
 
                             OP_JMP: begin
                                 case (operand[2:0])
                                     3'b100: begin
                                         if (x_reg != 8'h0) begin
                                             x_reg <= x_reg - 1'b1;
-                                            pc <= jump_tgt;
-                                        end else pc <= pc + 1'b1;
+                                            pc_target = jump_tgt;
+                                        end else pc_target = pc + 1'b1;
                                     end
                                     3'b101: begin
                                         if (y_reg != 8'h0) begin
                                             y_reg <= y_reg - 1'b1;
-                                            pc <= jump_tgt;
-                                        end else pc <= pc + 1'b1;
+                                            pc_target = jump_tgt;
+                                        end else pc_target = pc + 1'b1;
                                     end
                                     3'b110: begin
-                                        if (x_reg == 8'h0) pc <= jump_tgt;
-                                        else pc <= pc + 1'b1;
+                                        if (x_reg == 8'h0) pc_target = jump_tgt;
+                                        else pc_target = pc + 1'b1;
                                     end
                                     3'b111: begin
-                                        if (y_reg == 8'h0) pc <= jump_tgt;
-                                        else pc <= pc + 1'b1;
+                                        if (y_reg == 8'h0) pc_target = jump_tgt;
+                                        else pc_target = pc + 1'b1;
                                     end
-                                    default: pc <= jump_tgt;
+                                    default: pc_target = jump_tgt;
                                 endcase
                             end
 
                             OP_WAIT: begin
                                 if ((operand[1:0] == 2'b00 && uio_in[operand[3:1]] == 1'b0) ||
                                     (operand[1:0] == 2'b01 && uio_in[operand[3:1]] == 1'b1))
-                                    pc <= pc + 1'b1;
+                                    pc_target = pc + 1'b1;
                                 else
                                     next_state = S_EXEC;
                             end
@@ -286,7 +288,7 @@ module tt_um_protocol_engine (
                             OP_IN: begin
                                 isr <= {isr[30:0], uio_in[operand[2:0]]};
                                 isr_count <= isr_count + 1'b1;
-                                pc <= pc + 1'b1;
+                                pc_target = pc + 1'b1;
                             end
 
                             OP_OUT: begin
@@ -299,7 +301,7 @@ module tt_um_protocol_engine (
                                     tx_rd    <= tx_rd + 1'b1;
                                     tx_count <= tx_count - 1'b1;
                                 end
-                                pc <= pc + 1'b1;
+                                pc_target = pc + 1'b1;
                             end
 
                             OP_PUSH: begin
@@ -308,7 +310,7 @@ module tt_um_protocol_engine (
                                     rx_wr <= rx_wr + 1'b1;
                                     rx_count <= rx_count + 1'b1;
                                     isr_count <= 5'd0;
-                                    pc <= pc + 1'b1;
+                                    pc_target = pc + 1'b1;
                                 end else next_state = S_EXEC;
                             end
 
@@ -318,7 +320,7 @@ module tt_um_protocol_engine (
                                     tx_rd <= tx_rd + 1'b1;
                                     tx_count <= tx_count - 1'b1;
                                     osr_count <= 5'd8;
-                                    pc <= pc + 1'b1;
+                                    pc_target = pc + 1'b1;
                                 end else next_state = S_EXEC;
                             end
 
@@ -334,7 +336,7 @@ module tt_um_protocol_engine (
                                     3'h7: next_pin_out = y_reg;
                                     default: ;
                                 endcase
-                                pc <= pc + 1'b1;
+                                pc_target = pc + 1'b1;
                             end
 
                             OP_SET: begin
@@ -346,36 +348,41 @@ module tt_um_protocol_engine (
                                     3'h4: next_pin_out[7:4] = side_set;
                                     default: ;
                                 endcase
-                                pc <= pc + 1'b1;
+                                pc_target = pc + 1'b1;
                             end
 
-                            OP_IRQ: pc <= pc + 1'b1;
+                            OP_IRQ: pc_target = pc + 1'b1;
 
                             OP_DELAY: begin
                                 if ({x_reg, y_reg} == 16'h0) begin
-                                    pc <= pc + 1'b1;
+                                    pc_target = pc + 1'b1;
                                 end else begin
                                     delay_cnt  <= {x_reg, y_reg};
-                                    pc         <= pc + 1'b1;
+                                    pc_target  = pc + 1'b1;
                                     next_state = S_DELAY;
                                 end
                             end
 
                             OP_TOGGLE: begin
                                 next_pin_out[3:0] = next_pin_out[3:0] ^ side_set;
-                                pc <= pc + 1'b1;
+                                pc_target = pc + 1'b1;
                             end
 
                             OP_SAMPLE: begin
                                 isr <= {24'b0, uio_in};
                                 isr_count <= 5'd8;
-                                pc <= pc + 1'b1;
+                                pc_target = pc + 1'b1;
                             end
 
                             OP_HALT: next_state = S_EXEC;
 
-                            default: pc <= pc + 1'b1;
+                            default: pc_target = pc + 1'b1;
                         endcase
+
+                        if (cfg_wrap_top >= cfg_wrap_bottom && pc_target > cfg_wrap_top)
+                            pc <= cfg_wrap_bottom;
+                        else
+                            pc <= pc_target;
 
                         pin_out <= next_pin_out;
 
