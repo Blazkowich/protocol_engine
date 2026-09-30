@@ -1,0 +1,13 @@
+[options]
+mode prove
+depth 32
+
+[engines]
+smtbmc z3
+
+[script]
+read -formal formal/delay_props.sv
+prep -top delay_formal
+
+[files]
+formal/delay_props.sv
