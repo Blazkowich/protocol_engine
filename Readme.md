@@ -781,7 +781,7 @@ Without this gate, autopull would fire during `HALT` or `WAIT` cycles, consuming
 
 ## 14. Competition Requirements Checklist
 
-A condensed list. See the full document for details.
+A condensed list. The project currently meets the core protocol-emulation requirements in simulation and testing. Remaining unchecked items refer to the final ASIC flow (synthesis, P&R, and silicon validation), which must still be run before claiming a finished tapeout submission.
 
 ### Core design
 
@@ -807,9 +807,9 @@ A condensed list. See the full document for details.
 
 ### Protocols
 
-- [ ] UART working in firmware (example provided)
-- [ ] SPI working in firmware (example provided)
-- [ ] I2C working in firmware (example provided)
+- [x] UART working in firmware (example provided and validated)
+- [x] SPI working in firmware (example provided and validated)
+- [x] I2C working in firmware (example provided and validated)
 - [ ] USB low-speed (stretch)
 - [ ] Ethernet 10Mbit (stretch)
 
@@ -823,9 +823,11 @@ A condensed list. See the full document for details.
 - [ ] Check timing
 - [ ] Verify area fits with margin
 
+> The design is functionally complete for protocol emulation in simulation, but the physical ASIC flow still needs to be executed for final competition compliance.
+
 ### Verification
 
-- [x] Directed tests (16 tests)
+- [x] Directed tests (20 tests)
 - [ ] Constrained-random tests (cocotb)
 - [ ] Formal verification (SymbiYosys)
 - [ ] Coverage analysis

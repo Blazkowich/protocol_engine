@@ -287,6 +287,68 @@ module tb;
         repeat (600) @(posedge clk);
         check(8'h0F, uo_out[3:0], "UART idle high");
 
+        // ---- Test 15: SPI mode 0 (MOSI + SCLK) ----
+        $display("\n[Test 15] SPI mode 0");
+        reset_dut();
+        prog[0] = 16'h8040;   // CS high, SCLK low, MOSI low
+        prog[1] = 16'h8110;   // SET X = 1
+        prog[2] = 16'h7000;   // MOV OSR = X
+        prog[3] = 16'h8000;   // CS low, SCLK low, MOSI low
+        prog[4] = 16'h4000;   // OUT pin0 -> MOSI = 1
+        prog[5] = 16'h8020;   // SCLK high
+        prog[6] = 16'h8000;   // SCLK low
+        prog[7] = 16'hF000;   // HALT
+        load_prog(8);
+        wait_for_out(8'h01, 500);
+        check(8'h01, uo_out[0], "SPI MOSI bit = 1");
+        for (k = 0; k < 20; k = k + 1) begin
+            @(posedge clk); #1;
+            if (uo_out == 8'h02) begin
+                check(8'h01, {7'b0, uo_out[1]}, "SPI SCLK pulse high");
+                k = 20;
+            end
+        end
+
+        // ---- Test 16: I2C START + address byte ----
+        $display("\n[Test 16] I2C bit-bang");
+        reset_dut();
+        dut.tx_fifo[0] = 8'hA5;
+        dut.tx_count  = 4'd1;
+        prog[0] = 16'h8033;   // both idle high
+        prog[1] = 16'h8022;   // START: SDA low while SCL high
+        prog[2] = 16'h8000;   // SCL low
+        prog[3] = 16'h6000;   // PULL 0xA5 from TX FIFO
+        prog[4] = 16'h4000;   // OUT bit0 to SDA (bit = 1)
+        prog[5] = 16'h8002;   // SCL high
+        prog[6] = 16'h8000;   // SCL low
+        prog[7] = 16'h4000;   // OUT bit1 to SDA (bit = 0)
+        prog[8] = 16'h8002;
+        prog[9] = 16'h8000;
+        prog[10] = 16'h4000;
+        prog[11] = 16'h8002;
+        prog[12] = 16'h8000;
+        prog[13] = 16'h4000;
+        prog[14] = 16'h8002;
+        prog[15] = 16'h8000;
+        prog[16] = 16'h4000;
+        prog[17] = 16'h8002;
+        prog[18] = 16'h8000;
+        prog[19] = 16'h4000;
+        prog[20] = 16'h8002;
+        prog[21] = 16'h8000;
+        prog[22] = 16'h4000;
+        prog[23] = 16'h8002;
+        prog[24] = 16'h8000;
+        prog[25] = 16'h4000;
+        prog[26] = 16'h8002;
+        prog[27] = 16'h8000;
+        prog[28] = 16'hF000;
+        load_prog(29);
+        wait_for_out(8'h02, 500);
+        check(8'h02, uo_out, "I2C START = SDA low, SCL high");
+        wait_for_out(8'h01, 500);
+        check(8'h01, uo_out[0], "I2C first data bit = 1");
+
         // ---- Summary ----
         $display("\n==========================================");
         $display(" Results: %0d passed, %0d failed",
