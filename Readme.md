@@ -609,7 +609,7 @@ Expected output:
 ### 11.2 Compile and run
 
 ```bash
-cd path/to/protocol_emulator
+cd path/to/protocol_engine
 iverilog -g2012 -o sim.vvp src/tt_um_protocol_engine.v src/tb.v
 vvp sim.vvp
 ```
@@ -815,9 +815,9 @@ A condensed list. See the full document for details.
 
 ### Process & tooling
 
-- [ ] Target IHP CMOS5L
-- [ ] Use CMOS5L template
-- [ ] 6×4 tile size
+- [x] Target IHP CMOS5L
+- [x] Use CMOS5L template
+- [x] 6×4 tile size
 - [ ] Run synthesis
 - [ ] Run P&R
 - [ ] Check timing
