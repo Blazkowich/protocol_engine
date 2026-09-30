@@ -251,8 +251,8 @@ Both are gated on the *current* opcode so they don't fire during idle or `HALT` 
 
 Two 8-entry, 8-bit FIFOs:
 
-- **TX FIFO**: data waiting to be transmitted. Fed by an external host (future work) or by `PULL` instructions.
-- **RX FIFO**: data that has been received. Read by an external host (future work) or drained by `PUSH` instructions.
+- **TX FIFO**: data waiting to be transmitted. Written by the host FIFO interface or consumed by `PULL`/autopull.
+- **RX FIFO**: received data. Read by the host FIFO interface or written by `PUSH`/autopush.
 
 ---
 
@@ -290,7 +290,7 @@ For `JMP`, the jump target is `{operand[3], side_set}`, giving a 5-bit target (0
 | `0x6` | `PULL` | — | Move TX FIFO into OSR |
 | `0x7` | `MOV` | variant | Move between registers (see §6.5) |
 | `0x8` | `SET` | target | Set a target to `side_set` (see §6.6) |
-| `0x9` | `IRQ` | — | Reserved (currently NOP) |
+| `0x9` | `IRQ` | — | Set the sticky internal IRQ-pending flag (cleared by reset) |
 | `0xA` | `DELAY` | — | Wait for `{x_reg, y_reg}` ticks |
 | `0xB` | `TOGGLE` | — | XOR `pin_out[3:0]` with `side_set` |
 | `0xC` | `SAMPLE` | — | Atomically capture `uio_in` into ISR |
@@ -302,7 +302,7 @@ Side-set is a value placed in bits `[7:4]` of every instruction. When the low `c
 
 Example: `IN pin0` with `side_set = 0b0010` reads pin0 into ISR **and** drives pin1 high in the same cycle.
 
-Side-set is **automatically suppressed** for `SET` and `TOGGLE`, which also modify `pin_out`, to prevent conflicts.
+Side-set is **automatically suppressed** for `SET` and `TOGGLE`, which also modify `pin_out`, and for `WAIT`, which uses `side_set[0]` as an instruction control bit.
 
 Set `cfg_side_count = 0` to disable side-set entirely.
 
@@ -343,13 +343,14 @@ For `JMP X--` and `JMP Y--`, the target address must be **non-zero** (address 0 
 
 ### 6.7 WAIT variants (operand[1:0])
 
-| Operand | Meaning |
-|---|---|
-| `00` | Wait until `uio_in[pin] == 0` |
-| `01` | Wait until `uio_in[pin] == 1` |
-| `10`, `11` | Reserved for edge detection (future work) |
+| `side_set[0]` | `operand[0]` | Meaning |
+|---|---|---|
+| `0` | `0` | Wait until selected pin is low |
+| `0` | `1` | Wait until selected pin is high |
+| `1` | `0` | Wait for a falling edge |
+| `1` | `1` | Wait for a rising edge |
 
-The pin index is `operand[3:1]`, giving 8 possible pins.
+The pin index is `operand[3:1]`, giving all 8 pins for each wait condition. Edge transitions observed on `clk` are latched until a matching edge-wait consumes them, so a short pulse is not lost while the instruction engine is between ticks. For `WAIT`, `side_set[0]` selects edge mode and is not driven onto the output pins.
 
 ### 6.8 Per-instruction delay
 
@@ -521,41 +522,34 @@ This design uses **three layers** of verification. The competition explicitly we
 
 ### 10.1 Directed tests
 
-`tb.v` contains 16 tests, each exercising a specific feature:
+`src/tb.v` contains 23 directed test groups, including:
 
-| Test | Feature | Expected result |
-|---|---|---|
-| 1 | Reset | All outputs 0 |
-| 2 | `SET pins` | `uo_out = 0x0F` |
-| 3 | `TOGGLE` | `uo_out = 0x00` after toggle |
-| 4 | `SET pin_oe` | `uio_oe = 0x0F` |
-| 5 | `DELAY` | Delayed by ~2056 ticks |
-| 6 | `WAIT` | Stalls until pin high |
-| 7 | `OUT` | Sends bit 0 of OSR to pin |
-| 8 | `PULL` + `OUT` | Reads FIFO, sends to pin |
-| 9 | `JMP X--` loop | Loops exactly X times |
-| 10 | `SAMPLE` | Captures all 8 pins in one cycle |
-| 11 | Clock divider | Slows execution |
-| 12 | Autopull | Refills OSR from FIFO |
-| 13 | Random stress | 16 random programs |
-| 14 | UART pattern | Two-phase signal |
+| Test groups | Coverage |
+|---|---|
+| 1–4 | Reset, `SET`, `TOGGLE`, and output enable |
+| 5–12 | Delay, level `WAIT`, shifts, FIFOs, jumps, sampling, divider, and autopull |
+| 13–16 | Random stress and UART/SPI/I2C examples |
+| 17–20 | Wrap, IRQ latch, host FIFO, simultaneous transfers |
+| 21–22 | Latched rising- and falling-edge `WAIT`, including a short pulse |
+| 23 | Full TX/RX FIFO replacement transfers |
 
 ### 10.2 Constrained-random tests
 
-*(To be added — see `test_crv.py`.)*
+`test_crv.py` runs a seeded constrained-random program of 31 terminating `NOP`, `SET`, and `TOGGLE` instructions through the real host loader. A small reference model checks `uo_out` after each instruction, and the test checks outputs for unknown values.
 
-The intent is to use cocotb to:
+Run it with cocotb and Icarus Verilog installed:
 
-- Generate random 16-bit instructions with constraints (valid opcodes, valid operands).
-- Load them into the DUT and into a **golden reference model**.
-- Run both for N cycles and compare state after every cycle.
-- Report any divergence.
+```bash
+python3 test_crv.py
+```
+
+This covers a constrained instruction subset; it is not yet a randomized reference model for the full ISA.
 
 ### 10.3 Formal verification
 
-*(To be added — see `formal/`.)*
+*The current properties are standalone models, not proofs of this RTL.*
 
-The plan is to use SymbiYosys to prove properties like:
+The files in `formal/` currently check standalone delay and level-WAIT models; they are not bound to `tt_um_protocol_engine`. Formal proofs of the RTL, including edge-WAIT behavior, remain incomplete.
 
 - `DELAY` counts down by exactly 1 per tick until it reaches 0.
 - `WAIT` releases only when the pin matches the requested level.
@@ -591,7 +585,7 @@ Expected output:
  Protocol Engine Test Suite
 ==========================================
 ...
- Results: 16 passed, 0 failed
+ Results: 45 passed, 0 failed
  ALL TESTS PASSED
 ==========================================
 ```
@@ -705,7 +699,7 @@ See the provided `config.json` for LibreLane/OpenLane settings. Key values:
 
 - `CLOCK_PERIOD: 20` (50 MHz)
 - `DIE_AREA: "0 0 1002 432"` (6×4 tiles)
-- `PL_TARGET_DENSITY_PCT: 60`
+- `PL_TARGET_DENSITY_PCT: 65`
 - `FP_SIZING: absolute`
 
 ### 12.5 Run the flow
@@ -727,7 +721,9 @@ This runs synthesis, floorplanning, placement, routing, and GDS generation. Expe
 
 ### 12.7 Current status
 
-⚠️ **The design has not yet been synthesized or placed-and-routed.** To claim it fits in 6×4 tiles, you must run the flow. The estimated cell count is ~2600 cells; the 6×4 budget is ~24,000 cells. There is headroom, but P&R overhead (clock trees, buffers, routing) can consume 30–50% of that. **Run synthesis early.**
+Generic Yosys synthesis completes with no structural consistency problems. Its generic cell count is not an IHP CMOS5L standard-cell area estimate.
+
+⚠️ **IHP CMOS5L-mapped synthesis, place-and-route, timing analysis, and GDS generation have not yet run.** The 6×4 fit and timing requirements therefore remain unverified; only the target-PDK flow can establish those results.
 
 ---
 
@@ -772,10 +768,10 @@ Without this gate, autopull would fire during `HALT` or `WAIT` cycles, consuming
 ### 13.8 What's NOT implemented (yet)
 
 - **Wrap/loop**: `cfg_wrap_top`/`cfg_wrap_bottom` are defined but not used. Adding PIO-style wrap would eliminate the need for explicit `JMP` in tight loops.
-- **IRQ**: `OP_IRQ` is a NOP. In a multi-state-machine design, IRQs coordinate them. With a single PESM, IRQs would signal the host.
+- **IRQ**: `OP_IRQ` now latches a pending interrupt state internally. A full interrupt vector/host protocol is still future work.
 - **Edge detection**: `WAIT` only supports level detection. Rising/falling edge would help with JTAG, SWD, CAN.
 - **SRAM imem**: The instruction memory is currently a flop array. Swapping to an SRAM macro would save area and allow more instructions.
-- **Host FIFO port**: The FIFOs can only be accessed via PESM instructions. A dedicated host port would make the chip easier to use in a real system.
+- **Host FIFO port**: A minimal external host FIFO path is now implemented on the loader/control pins for TX/RX access. Full host-side protocol hardening is still future work.
 
 ---
 
@@ -802,8 +798,8 @@ A condensed list. The project currently meets the core protocol-emulation requir
 - [x] Atomic multi-pin sampling (SAMPLE)
 - [x] 5-bit jump target
 - [x] Loop wrap mechanism
-- [ ] IRQ support (currently NOP)
-- [ ] Host FIFO interface
+- [x] IRQ support (basic pending latch)
+- [x] Host FIFO interface
 
 ### Protocols
 
@@ -818,7 +814,7 @@ A condensed list. The project currently meets the core protocol-emulation requir
 - [x] Target IHP CMOS5L
 - [x] Use CMOS5L template
 - [x] 6×4 tile size
-- [ ] Run synthesis
+- [ ] Run IHP CMOS5L-mapped synthesis
 - [ ] Run P&R
 - [ ] Check timing
 - [ ] Verify area fits with margin

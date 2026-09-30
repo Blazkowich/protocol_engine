@@ -363,12 +363,140 @@ module tb;
         wait_for_out(8'h0F, 500);
         check(8'h0F, uo_out, "wrap from 1 back to 0");
 
+        // ---- Test 18: IRQ latch ----
+        $display("\n[Test 18] IRQ latch");
+        reset_dut();
+        prog[0] = 16'h9000;   // OP_IRQ
+        prog[1] = 16'hF000;   // HALT
+        load_prog(2);
+        repeat (40) @(posedge clk); #1;
+        check(8'h01, {7'b0, dut.irq_pending}, "IRQ pending after instruction");
+
+        // ---- Test 19: host FIFO access ----
+        $display("\n[Test 19] host FIFO access");
+        reset_dut();
+        ui_in = 8'hA5;
+        uio_in[2] = 1'b1;      // host FIFO mode
+        uio_in[3] = 1'b0;      // CPU running
+        uio_in[0] = 1'b1;      // host write enable
+        @(posedge clk); #1;
+        check(8'hA5, dut.tx_fifo[0], "host TX FIFO accepted byte");
+
+        dut.rx_fifo[0] = 8'h3C;
+        dut.rx_count = 4'd1;
+        uio_in[1] = 1'b1;      // host read enable
+        @(posedge clk); #1;
+        check(8'h3C, uo_out, "host RX FIFO returned byte");
+        uio_in[1] = 1'b0;
+
+        // ---- Test 20: simultaneous host and engine FIFO transfers ----
+        $display("\n[Test 20] simultaneous FIFO transfers");
+        reset_dut();
+        dut.tx_count = 4'd1;
+        dut.tx_rd = 4'd0;
+        dut.tx_wr = 4'd1;
+        dut.tx_fifo[0] = 8'h3C;
+        dut.state = 2'd1;
+        dut.instr = 16'h6000;   // OP_PULL
+        dut.tick = 1'b1;
+        ui_in = 8'hA5;
+        uio_in = 8'h05;         // host FIFO mode + write
+        @(posedge clk); #1;
+        check(8'h01, {4'b0, dut.tx_count}, "TX count stable");
+        check(8'h02, {4'b0, dut.tx_wr[1:0]}, "TX host write pointer advanced");
+        check(8'h01, {4'b0, dut.tx_rd[1:0]}, "TX engine read pointer advanced");
+
+        reset_dut();
+        dut.rx_count = 4'd1;
+        dut.rx_rd = 4'd0;
+        dut.rx_wr = 4'd1;
+        dut.rx_fifo[0] = 8'h3C;
+        dut.state = 2'd1;
+        dut.instr = 16'h5000;   // OP_PUSH
+        dut.tick = 1'b1;
+        uio_in = 8'h06;         // host FIFO mode + read
+        @(posedge clk); #1;
+        check(8'h01, {4'b0, dut.rx_count}, "RX count stable");
+        check(8'h02, {4'b0, dut.rx_wr[1:0]}, "RX engine write pointer advanced");
+        check(8'h01, {4'b0, dut.rx_rd[1:0]}, "RX host read pointer advanced");
+        check(8'h3C, dut.host_fifo_data, "simultaneous host read returned old FIFO head");
+
+        // ---- Test 21: WAIT for a rising edge, including a one-cycle pulse ----
+        $display("\n[Test 21] WAIT rising edge");
+        reset_dut();
+        prog[0] = 16'h2110;   // WAIT for rising edge on pin 0
+        prog[1] = 16'h80F0;
+        prog[2] = 16'hF000;
+        load_prog(3);
+        repeat (40) @(posedge clk); #1;
+        check(8'h00, uo_out, "WAIT rising edge stalls");
+        uio_in[0] = 1'b1;
+        @(posedge clk); #1;
+        uio_in[0] = 1'b0;
+        wait_for_out(8'h0F, 200);
+        check(8'h0F, uo_out, "rising edge consumed");
+
+        // ---- Test 22: WAIT for a falling edge ----
+        $display("\n[Test 22] WAIT falling edge");
+        reset_dut();
+        prog[0] = 16'h2010;   // WAIT for falling edge on pin 0
+        prog[1] = 16'h80F0;
+        prog[2] = 16'hF000;
+        load_prog(3);
+        uio_in[0] = 1'b1;
+        repeat (40) @(posedge clk); #1;
+        check(8'h00, uo_out, "WAIT falling edge stalls");
+        uio_in[0] = 1'b0;
+        @(posedge clk); #1;
+        uio_in[0] = 1'b1;
+        wait_for_out(8'h0F, 200);
+        check(8'h0F, uo_out, "falling edge consumed");
+
+        // ---- Test 23: full FIFO replacement transfers ----
+        $display("\n[Test 23] full FIFO replacement");
+        reset_dut();
+        dut.tx_count = 4'd8;
+        dut.tx_rd = 4'd3;
+        dut.tx_wr = 4'd3;
+        dut.tx_fifo[3] = 8'h3C;
+        dut.state = 2'd1;
+        dut.instr = 16'h6000;   // PULL from the full TX FIFO
+        dut.tick = 1'b1;
+        ui_in = 8'hA5;
+        uio_in = 8'h05;          // host write and engine dequeue
+        @(posedge clk); #1;
+        check(8'h08, dut.tx_count, "TX full count stays stable");
+        check(8'h3C, dut.osr[7:0], "TX dequeue returns old head");
+        check(8'hA5, dut.tx_fifo[3], "TX enqueue replaces tail");
+        check(8'h04, {5'b0, dut.tx_rd[2:0]}, "TX read pointer advances");
+        check(8'h04, {5'b0, dut.tx_wr[2:0]}, "TX write pointer advances");
+
+        reset_dut();
+        dut.rx_count = 4'd8;
+        dut.rx_rd = 4'd5;
+        dut.rx_wr = 4'd5;
+        dut.rx_fifo[5] = 8'h3C;
+        dut.isr = 32'h000000A5;
+        dut.state = 2'd1;
+        dut.instr = 16'h5000;   // PUSH into the full RX FIFO
+        dut.tick = 1'b1;
+        uio_in = 8'h06;          // host read and engine enqueue
+        @(posedge clk); #1;
+        check(8'h08, dut.rx_count, "RX full count stays stable");
+        check(8'h3C, dut.host_fifo_data, "RX dequeue returns old head");
+        check(8'hA5, dut.rx_fifo[5], "RX enqueue replaces tail");
+        check(8'h06, {4'b0, dut.rx_rd[2:0]}, "RX read pointer advances");
+        check(8'h06, {4'b0, dut.rx_wr[2:0]}, "RX write pointer advances");
+
         // ---- Summary ----
         $display("\n==========================================");
         $display(" Results: %0d passed, %0d failed",
                  pass_count, fail_count);
         if (fail_count == 0) $display(" ALL TESTS PASSED");
-        else                 $display(" SOME TESTS FAILED");
+        else begin
+            $display(" SOME TESTS FAILED");
+            $fatal(1, "%0d test checks failed", fail_count);
+        end
         $display("==========================================");
         $finish;
     end

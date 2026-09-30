@@ -72,6 +72,11 @@ module tt_um_protocol_engine (
     reg [15:0] delay_cnt;
     reg [1:0]  state;
     reg [1:0]  next_state;
+    reg        irq_pending;
+    reg [7:0]  host_fifo_data;
+    reg [7:0]  uio_in_prev;
+    reg [7:0]  wait_rise_pending;
+    reg [7:0]  wait_fall_pending;
 
     reg [3:0] side_mask;
     always @(*) begin
@@ -94,13 +99,18 @@ module tt_um_protocol_engine (
     reg [3:0] rx_wr, rx_rd, rx_count;
     wire tx_empty = (tx_count == 4'd0);
     wire rx_full  = (rx_count == 4'd8);
+    wire host_fifo_mode = (~uio_in[3]) & uio_in[2];
+    wire host_write_req = host_fifo_mode & uio_in[0];
+    wire host_read_req  = host_fifo_mode & uio_in[1];
+    wire rx_dequeue = host_read_req && (rx_count != 4'd0);
 
     // Autopull: only when the current instruction is OUT (consuming OSR)
     // Autopush: only when the current instruction is IN (filling ISR)
     // These gates prevent autopull/autopush from firing during idle/HALT cycles.
     wire autopull_hit = cfg_autopull && (osr_count <= cfg_pull_thresh) && !tx_empty
                         && (instr[15:12] == 4'h4);   // OP_OUT
-    wire autopush_hit = cfg_autopush && (isr_count >= cfg_push_thresh) && !rx_full
+    wire autopush_hit = cfg_autopush && (isr_count >= cfg_push_thresh) &&
+                        (!rx_full || rx_dequeue)
                         && (instr[15:12] == 4'h3);   // OP_IN
 
     // Effective OSR value: if autopull fires this cycle, OUT sees the refilled data
@@ -150,6 +160,24 @@ module tt_um_protocol_engine (
     localparam OP_SAMPLE = 4'hC;
     localparam OP_HALT   = 4'hF;
 
+    wire [7:0] wait_rise_event = uio_in & ~uio_in_prev;
+    wire [7:0] wait_fall_event = ~uio_in & uio_in_prev;
+    wire wait_edge_cycle = !uio_in[3] && !load_mode && tick &&
+                           state == S_EXEC && opcode == OP_WAIT;
+    wire [7:0] wait_rise_clear_mask =
+        (wait_edge_cycle && side_set[0] && operand[0] &&
+         wait_rise_pending[operand[3:1]]) ? (8'b1 << operand[3:1]) : 8'b0;
+    wire [7:0] wait_fall_clear_mask =
+        (wait_edge_cycle && side_set[0] && !operand[0] &&
+         wait_fall_pending[operand[3:1]]) ? (8'b1 << operand[3:1]) : 8'b0;
+    wire tx_dequeue = tick && (state == S_EXEC) &&
+                      ((opcode == OP_OUT && autopull_hit) ||
+                       (opcode == OP_PULL && !tx_empty));
+    wire tx_enqueue = host_write_req && ((tx_count != 4'd8) || tx_dequeue);
+    wire rx_enqueue = tick && (state == S_EXEC) &&
+                      ((opcode == OP_PUSH && (!rx_full || rx_dequeue)) ||
+                       autopush_hit);
+
     reg [4:0] pc_target;
     reg [7:0] next_pin_out;
 
@@ -162,8 +190,12 @@ module tt_um_protocol_engine (
             x_reg <= 8'h0; y_reg <= 8'h0;
             pin_out <= 8'h0; pin_oe <= 8'h0;
             delay_cnt <= 16'h0; state <= S_FETCH; next_state <= S_FETCH;
-            tx_wr <= 4'd0; tx_rd <= 4'd0; tx_count <= 4'd0;
-            rx_wr <= 4'd0; rx_rd <= 4'd0; rx_count <= 4'd0;
+            irq_pending <= 1'b0;
+            uio_in_prev <= 8'h00;
+            wait_rise_pending <= 8'h00;
+            wait_fall_pending <= 8'h00;
+            tx_rd <= 4'd0;
+            rx_wr <= 4'd0;
             load_shift <= 16'h0; cfg_shift <= 8'h0;
             load_bit <= 4'd0; cfg_bit <= 3'd0;
             load_addr <= 5'd0; load_mode <= 1'b0;
@@ -175,6 +207,16 @@ module tt_um_protocol_engine (
             cfg_side_count <= 4'd0;
             for (i = 0; i < 32; i = i + 1) imem[i] <= 16'hF000;
         end else begin
+            uio_in_prev <= uio_in;
+            if (uio_in[3] || load_mode) begin
+                wait_rise_pending <= 8'h00;
+                wait_fall_pending <= 8'h00;
+            end else begin
+                wait_rise_pending <= (wait_rise_pending & ~wait_rise_clear_mask) |
+                                     wait_rise_event;
+                wait_fall_pending <= (wait_fall_pending & ~wait_fall_clear_mask) |
+                                     wait_fall_event;
+            end
 
             if (load_start) begin
                 load_mode  <= 1'b1;
@@ -240,7 +282,8 @@ module tt_um_protocol_engine (
                         next_pin_out = pin_out;
 
                         if (side_mask != 4'b0000 &&
-                            opcode != OP_SET && opcode != OP_TOGGLE) begin
+                            opcode != OP_SET && opcode != OP_TOGGLE &&
+                            opcode != OP_WAIT) begin
                             next_pin_out[3:0] =
                                 (next_pin_out[3:0] & ~side_mask) |
                                 (side_set & side_mask);
@@ -278,8 +321,12 @@ module tt_um_protocol_engine (
                             end
 
                             OP_WAIT: begin
-                                if ((operand[1:0] == 2'b00 && uio_in[operand[3:1]] == 1'b0) ||
-                                    (operand[1:0] == 2'b01 && uio_in[operand[3:1]] == 1'b1))
+                                if ((!side_set[0] &&
+                                     uio_in[operand[3:1]] == operand[0]) ||
+                                    (side_set[0] && operand[0] &&
+                                     wait_rise_pending[operand[3:1]]) ||
+                                    (side_set[0] && !operand[0] &&
+                                     wait_fall_pending[operand[3:1]]))
                                     pc_target = pc + 1'b1;
                                 else
                                     next_state = S_EXEC;
@@ -299,16 +346,14 @@ module tt_um_protocol_engine (
                                     osr_count <= osr_count_eff - 1'b1;
                                 if (autopull_hit) begin
                                     tx_rd    <= tx_rd + 1'b1;
-                                    tx_count <= tx_count - 1'b1;
                                 end
                                 pc_target = pc + 1'b1;
                             end
 
                             OP_PUSH: begin
-                                if (!rx_full) begin
+                                if (!rx_full || rx_dequeue) begin
                                     rx_fifo[rx_wr[2:0]] <= isr[7:0];
                                     rx_wr <= rx_wr + 1'b1;
-                                    rx_count <= rx_count + 1'b1;
                                     isr_count <= 5'd0;
                                     pc_target = pc + 1'b1;
                                 end else next_state = S_EXEC;
@@ -318,7 +363,6 @@ module tt_um_protocol_engine (
                                 if (!tx_empty) begin
                                     osr <= {24'b0, tx_fifo[tx_rd[2:0]]};
                                     tx_rd <= tx_rd + 1'b1;
-                                    tx_count <= tx_count - 1'b1;
                                     osr_count <= 5'd8;
                                     pc_target = pc + 1'b1;
                                 end else next_state = S_EXEC;
@@ -351,7 +395,10 @@ module tt_um_protocol_engine (
                                 pc_target = pc + 1'b1;
                             end
 
-                            OP_IRQ: pc_target = pc + 1'b1;
+                            OP_IRQ: begin
+                                irq_pending <= 1'b1;
+                                pc_target = pc + 1'b1;
+                            end
 
                             OP_DELAY: begin
                                 if ({x_reg, y_reg} == 16'h0) begin
@@ -390,7 +437,6 @@ module tt_um_protocol_engine (
                         if (autopush_hit) begin
                             rx_fifo[rx_wr[2:0]] <= {isr[6:0], uio_in[operand[2:0]]};
                             rx_wr <= rx_wr + 1'b1;
-                            rx_count <= rx_count + 1'b1;
                             isr_count <= 5'd0;
                         end
 
@@ -414,7 +460,42 @@ module tt_um_protocol_engine (
         end
     end
 
-    assign uo_out  = pin_out;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            tx_wr <= 4'd0;
+            rx_rd <= 4'd0;
+            host_fifo_data <= 8'h00;
+        end else begin
+            if (host_write_req && ((tx_count != 4'd8) || tx_dequeue)) begin
+                tx_fifo[tx_wr[2:0]] <= ui_in;
+                tx_wr <= tx_wr + 1'b1;
+            end
+            if (host_read_req && (rx_count != 4'd0)) begin
+                host_fifo_data <= rx_fifo[rx_rd[2:0]];
+                rx_rd <= rx_rd + 1'b1;
+            end
+        end
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            tx_count <= 4'd0;
+            rx_count <= 4'd0;
+        end else begin
+            case ({tx_enqueue, tx_dequeue})
+                2'b10: tx_count <= tx_count + 1'b1;
+                2'b01: tx_count <= tx_count - 1'b1;
+                default: tx_count <= tx_count;
+            endcase
+            case ({rx_enqueue, rx_dequeue})
+                2'b10: rx_count <= rx_count + 1'b1;
+                2'b01: rx_count <= rx_count - 1'b1;
+                default: rx_count <= rx_count;
+            endcase
+        end
+    end
+
+    assign uo_out  = (host_fifo_mode && host_read_req) ? host_fifo_data : pin_out;
     assign uio_out = pin_out;
     assign uio_oe  = pin_oe;
 
