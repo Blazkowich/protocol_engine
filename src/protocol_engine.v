@@ -38,7 +38,7 @@ module protocol_engine (
     wire [8:0] clkdiv_frac_sum = {1'b0, clkdiv_frac_acc} +
                                   {1'b0, cfg_clkdiv_frac};
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk or negedge rst_n) begin : clock_divider
         if (!rst_n) begin
             clkdiv_int_cnt  <= 16'd0;
             clkdiv_frac_acc <= 8'd0;
@@ -79,7 +79,7 @@ module protocol_engine (
     reg [7:0]  wait_fall_pending;
 
     reg [3:0] side_mask;
-    always @(*) begin
+    always @(*) begin : side_mask_decode
         case (cfg_side_count)
             4'd0: side_mask = 4'b0000;
             4'd1: side_mask = 4'b0001;
@@ -134,7 +134,7 @@ module protocol_engine (
     wire       load_start    = uio_in[3] & ~uio3_d;
     wire [7:0] cfg_byte      = {cfg_shift[6:0], uio_in[0]};
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk or negedge rst_n) begin : host_edge_capture
         if (!rst_n) begin
             host_clk_d <= 1'b0;
             uio3_d     <= 1'b0;
@@ -187,7 +187,7 @@ module protocol_engine (
     reg [7:0] next_pin_out;
 
     integer i;
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk or negedge rst_n) begin : loader_and_execution_fsm
         if (!rst_n) begin
             pc <= 5'd0; instr <= 16'h0000;
             osr <= 32'h0; isr <= 32'h0;
@@ -478,7 +478,7 @@ module protocol_engine (
         end
     end
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk or negedge rst_n) begin : host_fifo_transfer
         if (!rst_n) begin
             tx_wr <= 4'd0;
             rx_rd <= 4'd0;
@@ -495,7 +495,7 @@ module protocol_engine (
         end
     end
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk or negedge rst_n) begin : fifo_occupancy
         if (!rst_n) begin
             tx_count <= 4'd0;
             rx_count <= 4'd0;
