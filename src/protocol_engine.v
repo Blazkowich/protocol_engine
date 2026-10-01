@@ -18,8 +18,6 @@ module protocol_engine (
     input  wire       rst_n
 );
 
-    reg [15:0] imem [0:31];
-
     reg [15:0] cfg_clkdiv_int;
     reg [7:0]  cfg_clkdiv_frac;
     reg [4:0]  cfg_wrap_top;
@@ -32,35 +30,18 @@ module protocol_engine (
     reg [3:0]  cfg_side_count;
     reg        cfg_side_oe;
 
-    reg [15:0] clkdiv_int_cnt;
-    reg [7:0]  clkdiv_frac_acc;
-    reg        tick;
-    wire [8:0] clkdiv_frac_sum = {1'b0, clkdiv_frac_acc} +
-                                  {1'b0, cfg_clkdiv_frac};
-
-    always @(posedge clk or negedge rst_n) begin : clock_divider
-        if (!rst_n) begin
-            clkdiv_int_cnt  <= 16'd0;
-            clkdiv_frac_acc <= 8'd0;
-            tick            <= 1'b0;
-        end else begin
-            if (clkdiv_int_cnt == 16'd0) begin
-                clkdiv_frac_acc <= clkdiv_frac_sum[7:0];
-                if (cfg_clkdiv_int == 16'd0)
-                    clkdiv_int_cnt <= 16'd0;
-                else
-                    clkdiv_int_cnt <= cfg_clkdiv_int - 1'b1 +
-                                      clkdiv_frac_sum[8];
-                tick <= 1'b1;
-            end else begin
-                clkdiv_int_cnt <= clkdiv_int_cnt - 1'b1;
-                tick           <= 1'b0;
-            end
-        end
-    end
+    wire tick;
+    protocol_clock_divider clock_divider (
+        .clk(clk),
+        .rst_n(rst_n),
+        .cfg_clkdiv_int(cfg_clkdiv_int),
+        .cfg_clkdiv_frac(cfg_clkdiv_frac),
+        .tick(tick)
+    );
 
     reg [4:0]  pc;
     reg [15:0] instr;
+    wire [15:0] imem_read_data;
     reg [31:0] osr;
     reg [31:0] isr;
     reg [4:0]  osr_count;
@@ -93,10 +74,10 @@ module protocol_engine (
     localparam S_EXEC  = 2'd1;
     localparam S_DELAY = 2'd2;
 
-    reg [7:0] tx_fifo [0:7];
-    reg [7:0] rx_fifo [0:7];
     reg [3:0] tx_wr, tx_rd, tx_count;
     reg [3:0] rx_wr, rx_rd, rx_count;
+    wire [7:0] tx_fifo_data;
+    wire [7:0] rx_fifo_data;
     wire tx_empty = (tx_count == 4'd0);
     wire rx_full  = (rx_count == 4'd8);
     wire host_fifo_mode = (~uio_in[3]) & uio_in[2];
@@ -116,8 +97,8 @@ module protocol_engine (
 
     // Effective OSR value: if autopull fires this cycle, OUT sees the refilled data
     wire [31:0] tx_fifo_word = cfg_shift_dir == 2'd0 ?
-                               {24'b0, tx_fifo[tx_rd[2:0]]} :
-                               {tx_fifo[tx_rd[2:0]], 24'b0};
+                               {24'b0, tx_fifo_data} :
+                               {tx_fifo_data, 24'b0};
     wire [31:0] osr_eff       = autopull_hit ? tx_fifo_word : osr;
     wire        out_bit       = cfg_shift_dir == 2'd0 ? osr_eff[0] : osr_eff[31];
     wire [4:0]  osr_count_eff = autopull_hit ? 5'd8 : osr_count;
@@ -133,6 +114,18 @@ module protocol_engine (
     wire       host_clk_rise = uio_in[1] & ~host_clk_d;
     wire       load_start    = uio_in[3] & ~uio3_d;
     wire [7:0] cfg_byte      = {cfg_shift[6:0], uio_in[0]};
+    wire imem_write_enable = !load_start && uio_in[3] && host_clk_rise &&
+                             !uio_in[2] && (load_bit == 4'd15);
+
+    protocol_instruction_memory instruction_memory (
+        .clk(clk),
+        .rst_n(rst_n),
+        .write_enable(imem_write_enable),
+        .write_address(load_addr),
+        .write_data({load_shift[14:0], uio_in[0]}),
+        .read_address(pc),
+        .read_data(imem_read_data)
+    );
 
     always @(posedge clk or negedge rst_n) begin : host_edge_capture
         if (!rst_n) begin
@@ -182,11 +175,31 @@ module protocol_engine (
     wire rx_enqueue = tick && (state == S_EXEC) &&
                       ((opcode == OP_PUSH && (!rx_full || rx_dequeue)) ||
                        autopush_hit);
+    wire rx_fifo_write_enable = !uio_in[3] && !load_mode && tick &&
+                                (state == S_EXEC) &&
+                                ((opcode == OP_PUSH && (!rx_full || rx_dequeue)) ||
+                                 autopush_hit);
+    wire [7:0] rx_fifo_write_data = autopush_hit ?
+                                    {isr[6:0], protocol_in[operand[2:0]]} : isr[7:0];
+
+    protocol_fifo_storage fifo_storage (
+        .clk(clk),
+        .rst_n(rst_n),
+        .tx_write_enable(tx_enqueue),
+        .tx_write_address(tx_wr[2:0]),
+        .tx_write_data(ui_in),
+        .tx_read_address(tx_rd[2:0]),
+        .tx_read_data(tx_fifo_data),
+        .rx_write_enable(rx_fifo_write_enable),
+        .rx_write_address(rx_wr[2:0]),
+        .rx_write_data(rx_fifo_write_data),
+        .rx_read_address(rx_rd[2:0]),
+        .rx_read_data(rx_fifo_data)
+    );
 
     reg [4:0] pc_target;
     reg [7:0] next_pin_out;
 
-    integer i;
     always @(posedge clk or negedge rst_n) begin : loader_and_execution_fsm
         if (!rst_n) begin
             pc <= 5'd0; instr <= 16'h0000;
@@ -211,7 +224,6 @@ module protocol_engine (
             cfg_pull_thresh <= 5'd0; cfg_push_thresh <= 5'd31;
             cfg_side_count <= 4'd0;
             cfg_side_oe <= 1'b0;
-            for (i = 0; i < 32; i = i + 1) imem[i] <= 16'hF000;
         end else begin
             pin_in_prev <= protocol_in;
             if (uio_in[3] || load_mode) begin
@@ -237,7 +249,6 @@ module protocol_engine (
                     if (uio_in[2] == 1'b0) begin
                         load_shift <= {load_shift[14:0], uio_in[0]};
                         if (load_bit == 4'd15) begin
-                            imem[load_addr] <= {load_shift[14:0], uio_in[0]};
                             load_bit  <= 4'd0;
                             load_addr <= load_addr + 1'b1;
                         end else begin
@@ -280,7 +291,7 @@ module protocol_engine (
             if (!uio_in[3] && !load_mode && tick) begin
                 case (state)
                     S_FETCH: begin
-                        instr <= imem[pc];
+                        instr <= imem_read_data;
                         state <= S_EXEC;
                     end
 
@@ -368,7 +379,6 @@ module protocol_engine (
 
                             OP_PUSH: begin
                                 if (!rx_full || rx_dequeue) begin
-                                    rx_fifo[rx_wr[2:0]] <= isr[7:0];
                                     rx_wr <= rx_wr + 1'b1;
                                     isr_count <= 5'd0;
                                     pc_target = pc + 1'b1;
@@ -453,7 +463,6 @@ module protocol_engine (
 
                         // Autopush (autopull is now folded into OP_OUT)
                         if (autopush_hit) begin
-                            rx_fifo[rx_wr[2:0]] <= {isr[6:0], protocol_in[operand[2:0]]};
                             rx_wr <= rx_wr + 1'b1;
                             isr_count <= 5'd0;
                         end
@@ -485,11 +494,10 @@ module protocol_engine (
             host_fifo_data <= 8'h00;
         end else begin
             if (host_write_req && ((tx_count != 4'd8) || tx_dequeue)) begin
-                tx_fifo[tx_wr[2:0]] <= ui_in;
                 tx_wr <= tx_wr + 1'b1;
             end
             if (host_read_req && (rx_count != 4'd0)) begin
-                host_fifo_data <= rx_fifo[rx_rd[2:0]];
+                host_fifo_data <= rx_fifo_data;
                 rx_rd <= rx_rd + 1'b1;
             end
         end
@@ -519,6 +527,101 @@ module protocol_engine (
 
     wire _unused = &{ena, 1'b0};
 
+endmodule
+
+module protocol_clock_divider (
+    input  wire        clk,
+    input  wire        rst_n,
+    input  wire [15:0] cfg_clkdiv_int,
+    input  wire [7:0]  cfg_clkdiv_frac,
+    output reg         tick
+);
+
+    reg [15:0] clkdiv_int_cnt;
+    reg [7:0] clkdiv_frac_acc;
+    wire [8:0] clkdiv_frac_sum = {1'b0, clkdiv_frac_acc} +
+                                  {1'b0, cfg_clkdiv_frac};
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            clkdiv_int_cnt  <= 16'd0;
+            clkdiv_frac_acc <= 8'd0;
+            tick            <= 1'b0;
+        end else begin
+            if (clkdiv_int_cnt == 16'd0) begin
+                clkdiv_frac_acc <= clkdiv_frac_sum[7:0];
+                if (cfg_clkdiv_int == 16'd0)
+                    clkdiv_int_cnt <= 16'd0;
+                else
+                    clkdiv_int_cnt <= cfg_clkdiv_int - 1'b1 +
+                                      clkdiv_frac_sum[8];
+                tick <= 1'b1;
+            end else begin
+                clkdiv_int_cnt <= clkdiv_int_cnt - 1'b1;
+                tick           <= 1'b0;
+            end
+        end
+    end
+endmodule
+
+module protocol_instruction_memory (
+    input  wire        clk,
+    input  wire        rst_n,
+    input  wire        write_enable,
+    input  wire [4:0]  write_address,
+    input  wire [15:0] write_data,
+    input  wire [4:0]  read_address,
+    output wire [15:0] read_data
+);
+
+    reg [15:0] words [0:31];
+    reg [31:0] word_valid;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            word_valid <= 32'b0;
+        end else if (write_enable) begin
+            word_valid[write_address] <= 1'b1;
+        end
+    end
+
+    always @(posedge clk) begin
+        if (rst_n && write_enable)
+            words[write_address] <= write_data;
+    end
+
+    assign read_data = word_valid[read_address] ? words[read_address] : 16'hF000;
+endmodule
+
+module protocol_fifo_storage (
+    input  wire       clk,
+    input  wire       rst_n,
+    input  wire       tx_write_enable,
+    input  wire [2:0] tx_write_address,
+    input  wire [7:0] tx_write_data,
+    input  wire [2:0] tx_read_address,
+    output wire [7:0] tx_read_data,
+    input  wire       rx_write_enable,
+    input  wire [2:0] rx_write_address,
+    input  wire [7:0] rx_write_data,
+    input  wire [2:0] rx_read_address,
+    output wire [7:0] rx_read_data
+);
+
+    reg [7:0] tx_fifo [0:7];
+    reg [7:0] rx_fifo [0:7];
+
+    always @(posedge clk) begin
+        if (rst_n) begin
+            if (tx_write_enable)
+                tx_fifo[tx_write_address] <= tx_write_data;
+            if (rx_write_enable)
+                rx_fifo[rx_write_address] <= rx_write_data;
+        end
+    end
+
+    assign tx_read_data = tx_fifo[tx_read_address];
+    assign rx_read_data = rx_fifo[rx_read_address];
 endmodule
 
 `default_nettype wire

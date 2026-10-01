@@ -263,7 +263,7 @@ module tb;
         prog[1] = 16'h4000;
         prog[2] = 16'hF000;
         load_prog(3);
-        dut.tx_fifo[0] = 8'h01;
+        dut.fifo_storage.tx_fifo[0] = 8'h01;
         dut.tx_count = 4'd1;
         repeat (80) @(posedge clk); #1;
         check(8'h01, uo_out[0], "PULL + OUT");
@@ -308,7 +308,7 @@ module tb;
         reset_dut();
         write_cfg(5'd6, 8'h01);   // cfg_autopull = 1
         write_cfg(5'd8, 8'h00);   // pull_thresh = 0
-        dut.tx_fifo[0] = 8'h01;
+        dut.fifo_storage.tx_fifo[0] = 8'h01;
         dut.tx_count  = 4'd1;
         prog[0] = 16'h4000;   // OUT (autopull must refill OSR BEFORE shift)
         prog[1] = 16'hF000;   // HALT
@@ -455,9 +455,9 @@ module tb;
         uio_in[3] = 1'b0;      // CPU running
         uio_in[0] = 1'b1;      // host write enable
         @(posedge clk); #1;
-        check(8'hA5, dut.tx_fifo[0], "host TX FIFO accepted byte");
+        check(8'hA5, dut.fifo_storage.tx_fifo[0], "host TX FIFO accepted byte");
 
-        dut.rx_fifo[0] = 8'h3C;
+        dut.fifo_storage.rx_fifo[0] = 8'h3C;
         dut.rx_count = 4'd1;
         uio_in[1] = 1'b1;      // host read enable
         @(posedge clk); #1;
@@ -470,10 +470,10 @@ module tb;
         dut.tx_count = 4'd1;
         dut.tx_rd = 4'd0;
         dut.tx_wr = 4'd1;
-        dut.tx_fifo[0] = 8'h3C;
+        dut.fifo_storage.tx_fifo[0] = 8'h3C;
         dut.state = 2'd1;
         dut.instr = 16'h6000;   // OP_PULL
-        dut.tick = 1'b1;
+        dut.clock_divider.tick = 1'b1;
         ui_in = 8'hA5;
         uio_in = 8'h05;         // host FIFO mode + write
         @(posedge clk); #1;
@@ -485,10 +485,10 @@ module tb;
         dut.rx_count = 4'd1;
         dut.rx_rd = 4'd0;
         dut.rx_wr = 4'd1;
-        dut.rx_fifo[0] = 8'h3C;
+        dut.fifo_storage.rx_fifo[0] = 8'h3C;
         dut.state = 2'd1;
         dut.instr = 16'h5000;   // OP_PUSH
-        dut.tick = 1'b1;
+        dut.clock_divider.tick = 1'b1;
         uio_in = 8'h06;         // host FIFO mode + read
         @(posedge clk); #1;
         check(8'h01, {4'b0, dut.rx_count}, "RX count stable");
@@ -533,16 +533,16 @@ module tb;
         dut.tx_count = 4'd8;
         dut.tx_rd = 4'd3;
         dut.tx_wr = 4'd3;
-        dut.tx_fifo[3] = 8'h3C;
+        dut.fifo_storage.tx_fifo[3] = 8'h3C;
         dut.state = 2'd1;
         dut.instr = 16'h6000;   // PULL from the full TX FIFO
-        dut.tick = 1'b1;
+        dut.clock_divider.tick = 1'b1;
         ui_in = 8'hA5;
         uio_in = 8'h05;          // host write and engine dequeue
         @(posedge clk); #1;
         check(8'h08, dut.tx_count, "TX full count stays stable");
         check(8'h3C, dut.osr[7:0], "TX dequeue returns old head");
-        check(8'hA5, dut.tx_fifo[3], "TX enqueue replaces tail");
+        check(8'hA5, dut.fifo_storage.tx_fifo[3], "TX enqueue replaces tail");
         check(8'h04, {5'b0, dut.tx_rd[2:0]}, "TX read pointer advances");
         check(8'h04, {5'b0, dut.tx_wr[2:0]}, "TX write pointer advances");
 
@@ -550,16 +550,16 @@ module tb;
         dut.rx_count = 4'd8;
         dut.rx_rd = 4'd5;
         dut.rx_wr = 4'd5;
-        dut.rx_fifo[5] = 8'h3C;
+        dut.fifo_storage.rx_fifo[5] = 8'h3C;
         dut.isr = 32'h000000A5;
         dut.state = 2'd1;
         dut.instr = 16'h5000;   // PUSH into the full RX FIFO
-        dut.tick = 1'b1;
+        dut.clock_divider.tick = 1'b1;
         uio_in = 8'h06;          // host read and engine enqueue
         @(posedge clk); #1;
         check(8'h08, dut.rx_count, "RX full count stays stable");
         check(8'h3C, dut.host_fifo_data, "RX dequeue returns old head");
-        check(8'hA5, dut.rx_fifo[5], "RX enqueue replaces tail");
+        check(8'hA5, dut.fifo_storage.rx_fifo[5], "RX enqueue replaces tail");
         check(8'h06, {4'b0, dut.rx_rd[2:0]}, "RX read pointer advances");
         check(8'h06, {4'b0, dut.rx_wr[2:0]}, "RX write pointer advances");
 
@@ -568,8 +568,8 @@ module tb;
         reset_dut();
         write_cfg(5'd0, 8'd3);
         write_cfg(5'd2, 8'd128);
-        dut.clkdiv_int_cnt = 16'd0;
-        dut.clkdiv_frac_acc = 8'd0;
+        dut.clock_divider.clkdiv_int_cnt = 16'd0;
+        dut.clock_divider.clkdiv_frac_acc = 8'd0;
         cycle_count = 0;
         last_tick_cycle = 0;
         interval_first = 0;
