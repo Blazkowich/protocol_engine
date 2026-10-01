@@ -22,9 +22,13 @@ module tb;
 
     integer pass_count = 0, fail_count = 0;
     integer i, j, k;
+    integer cycle_count, last_tick_cycle, interval_first, interval_second, tick_count;
+    reg [7:0] tx_byte;
     reg [15:0] prog [0:31];
     reg [31:0] rnd_a, rnd_b;
 
+    wire i2c_scl = uio_oe[5] ? uio_out[5] : 1'b1;
+    wire i2c_sda = (uio_oe[6] && !uio_out[6]) ? 1'b0 : uio_in[6];
     // ---------- Tasks ----------
     task reset_dut;
         begin
@@ -32,6 +36,20 @@ module tb;
             repeat (5) @(posedge clk);
             rst_n = 1'b1;
             repeat (2) @(posedge clk);
+        end
+    endtask
+
+    task shift_cfg_byte(input [7:0] value);
+        integer b;
+        begin
+            for (b = 7; b >= 0; b = b - 1) begin
+                uio_in[0] = value[b];
+                @(posedge clk); #1;
+                uio_in[1] = 1'b1;
+                @(posedge clk); #1;
+                uio_in[1] = 1'b0;
+                @(posedge clk); #1;
+            end
         end
     endtask
 
@@ -46,6 +64,39 @@ module tb;
                 uio_in[1] = 1'b0;
                 @(posedge clk); #1;
             end
+        end
+    endtask
+
+    task load_protocol_config;
+        integer cfg_index;
+        reg [7:0] cfg_value;
+        begin
+            @(posedge clk); #1;
+            uio_in[3] = 1'b1;
+            uio_in[2] = 1'b1;
+            @(posedge clk); #1;
+            for (cfg_index = 0; cfg_index < 12; cfg_index = cfg_index + 1) begin
+                case (cfg_index)
+                    0: cfg_value = 8'd0;
+                    1: cfg_value = 8'd0;
+                    2: cfg_value = 8'd0;
+                    3: cfg_value = 8'd31;
+                    4: cfg_value = 8'd0;
+                    5: cfg_value = 8'd1;
+                    6: cfg_value = 8'd0;
+                    7: cfg_value = 8'd0;
+                    8: cfg_value = 8'd0;
+                    9: cfg_value = 8'd31;
+                    10: cfg_value = 8'd2;
+                    11: cfg_value = 8'd1;
+                    default: cfg_value = 8'd0;
+                endcase
+                shift_cfg_byte(cfg_value);
+            end
+            uio_in[3] = 1'b0;
+            uio_in[1] = 1'b0;
+            uio_in[0] = 1'b0;
+            @(posedge clk); #1;
         end
     endtask
 
@@ -80,8 +131,22 @@ module tb;
                 5'd8:  dut.cfg_pull_thresh      = data[4:0];
                 5'd9:  dut.cfg_push_thresh      = data[4:0];
                 5'd10: dut.cfg_side_count       = data[3:0];
+                5'd11: dut.cfg_side_oe          = data[0];
                 default: ;
             endcase
+            @(posedge clk); #1;
+        end
+    endtask
+
+    task host_write_byte(input [7:0] data);
+        begin
+            ui_in = data;
+            uio_in[2] = 1'b1;
+            uio_in[3] = 1'b0;
+            uio_in[0] = 1'b1;
+            @(posedge clk); #1;
+            uio_in[0] = 1'b0;
+            uio_in[2] = 1'b0;
             @(posedge clk); #1;
         end
     endtask
@@ -132,6 +197,7 @@ module tb;
         load_prog(2);
         wait_for_out(8'h0F, 500);
         check(8'h0F, uo_out, "SET pins=0xF");
+        check(8'hF0, uio_out, "UIO4-7 output routing");
 
         // ---- Test 3: TOGGLE ----
         $display("\n[Test 3] TOGGLE");
@@ -146,18 +212,18 @@ module tb;
         // ---- Test 4: SETOE ----
         $display("\n[Test 4] SETOE");
         reset_dut();
-        prog[0] = 16'h83F0;   // SET pin_oe = 0xF
+        prog[0] = 16'h83F0;
         prog[1] = 16'hF000;
         load_prog(2);
-        wait_for_out(8'h0F, 500);
-        check(8'h0F, uio_oe, "SETOE 0xF");
+        repeat (40) @(posedge clk); #1;
+        check(8'hF0, uio_oe, "SETOE routes enable to UIO4-7");
 
         // ---- Test 5: DELAY ----
         $display("\n[Test 5] DELAY");
         reset_dut();
-        prog[0] = 16'h8180;   // SET X = 8
-        prog[1] = 16'h8280;   // SET Y = 8
-        prog[2] = 16'hA000;   // DELAY 0x0808 cycles
+        prog[0] = 16'h8180;
+        prog[1] = 16'h8280;
+        prog[2] = 16'hA000;
         prog[3] = 16'h80F0;
         prog[4] = 16'hF000;
         load_prog(5);
@@ -167,24 +233,24 @@ module tb;
         // ---- Test 6: WAIT pin 0 high ----
         $display("\n[Test 6] WAIT pin");
         reset_dut();
-        prog[0] = 16'h2100;   // WAIT pin 0 high
+        prog[0] = 16'h2100;
         prog[1] = 16'h80F0;
         prog[2] = 16'hF000;
         load_prog(3);
-        uio_in[0] = 1'b0;
+        uio_in[4] = 1'b0;
         repeat (30) @(posedge clk); #1;
         check(8'h00, uo_out, "stalled while pin low");
-        uio_in[0] = 1'b1;
+        uio_in[4] = 1'b1;
         wait_for_out(8'h0F, 500);
         check(8'h0F, uo_out, "WAIT released");
-        uio_in[0] = 1'b0;
+        uio_in[4] = 1'b0;
 
         // ---- Test 7: OUT ----
         $display("\n[Test 7] OUT");
         reset_dut();
-        prog[0] = 16'h8110;   // SET X = 1
-        prog[1] = 16'h7000;   // MOV OSR = X
-        prog[2] = 16'h4000;   // OUT pin 0
+        prog[0] = 16'h8110;
+        prog[1] = 16'h7000;
+        prog[2] = 16'h4000;
         prog[3] = 16'hF000;
         load_prog(4);
         repeat (80) @(posedge clk); #1;
@@ -193,23 +259,20 @@ module tb;
         // ---- Test 8: FIFO PULL ----
         $display("\n[Test 8] FIFO PULL");
         reset_dut();
-        prog[0] = 16'h6000;   // PULL
-        prog[1] = 16'h4000;   // OUT pin0
+        prog[0] = 16'h6000;
+        prog[1] = 16'h4000;
         prog[2] = 16'hF000;
         load_prog(3);
         dut.tx_fifo[0] = 8'h01;
-        dut.tx_count  = 4'd1;
+        dut.tx_count = 4'd1;
         repeat (80) @(posedge clk); #1;
         check(8'h01, uo_out[0], "PULL + OUT");
 
         // ---- Test 9: JMP X-- loop ----
         $display("\n[Test 9] JMP X-- loop");
         reset_dut();
-        // SET X = 2
         prog[0] = 16'h8120;
-        // Loop body: SET pins=0xF
         prog[1] = 16'h80F0;
-        // JMP X--, tgt=1   (operand=4, side_set=1 -> target = {0,1}=1)
         prog[2] = 16'h1420;
         prog[3] = 16'hF000;
         load_prog(4);
@@ -223,7 +286,8 @@ module tb;
         prog[1] = 16'h7500;   // MOV pin_out = ISR
         prog[2] = 16'hF000;
         load_prog(3);
-        uio_in = 8'hA5;
+        uio_in = 8'h50;
+        ui_in = 8'h0A;
         wait_for_out(8'hA5, 500);
         check(8'hA5, uo_out, "SAMPLE -> ISR -> pins");
         uio_in = 8'h00;
@@ -269,85 +333,96 @@ module tb;
         $display("  [PASS] random stress (16 iterations)");
         pass_count = pass_count + 1;
 
-        // ---- Test 14: UART pattern ----
-        $display("\n[Test 14] UART pattern");
+        // ---- Test 14: UART 8N1 transmit ----
+        $display("\n[Test 14] UART 8N1 transmit");
         reset_dut();
-        write_cfg(5'd0, 8'h04);   // slow clock
-        prog[0] = 16'h80F0;   // idle high
-        prog[1] = 16'h8101;   // SET X = 1
-        prog[2] = 16'h8201;   // SET Y = 1
-        prog[3] = 16'hA000;   // DELAY
-        prog[4] = 16'h8000;   // start bit (low)
-        prog[5] = 16'h8101;
-        prog[6] = 16'h8201;
-        prog[7] = 16'hA000;   // DELAY
-        prog[8] = 16'h80F0;   // stop bit (high)
-        prog[9] = 16'hF000;
-        load_prog(10);
-        repeat (600) @(posedge clk);
-        check(8'h0F, uo_out[3:0], "UART idle high");
-
-        // ---- Test 15: SPI mode 0 (MOSI + SCLK) ----
-        $display("\n[Test 15] SPI mode 0");
-        reset_dut();
-        prog[0] = 16'h8040;   // CS high, SCLK low, MOSI low
-        prog[1] = 16'h8110;   // SET X = 1
-        prog[2] = 16'h7000;   // MOV OSR = X
-        prog[3] = 16'h8000;   // CS low, SCLK low, MOSI low
-        prog[4] = 16'h4000;   // OUT pin0 -> MOSI = 1
-        prog[5] = 16'h8020;   // SCLK high
-        prog[6] = 16'h8000;   // SCLK low
-        prog[7] = 16'hF000;   // HALT
-        load_prog(8);
-        wait_for_out(8'h01, 500);
-        check(8'h01, uo_out[0], "SPI MOSI bit = 1");
-        for (k = 0; k < 20; k = k + 1) begin
-            @(posedge clk); #1;
-            if (uo_out == 8'h02) begin
-                check(8'h01, {7'b0, uo_out[1]}, "SPI SCLK pulse high");
-                k = 20;
-            end
+        tx_byte = 8'hA5;
+        host_write_byte(tx_byte);
+        write_cfg(5'd0, 8'd4);
+        write_cfg(5'd2, 8'd0);
+        prog[0] = 16'h80F0;
+        prog[1] = 16'h6000;
+        prog[2] = 16'h8000;
+        for (i = 0; i < 8; i = i + 1) prog[3+i] = 16'h4000;
+        prog[11] = 16'h80F0;
+        prog[12] = 16'hF000;
+        load_prog(13);
+        @(negedge uo_out[0]);
+        repeat (4) @(posedge clk); #1;
+        check(8'h00, {7'b0, uo_out[0]}, "UART start bit");
+        for (i = 0; i < 8; i = i + 1) begin
+            repeat (8) @(posedge clk); #1;
+            check(tx_byte[i], {7'b0, uo_out[0]}, "UART LSB-first data bit");
         end
+        repeat (8) @(posedge clk); #1;
+        check(8'h01, {7'b0, uo_out[0]}, "UART stop bit");
 
-        // ---- Test 16: I2C START + address byte ----
-        $display("\n[Test 16] I2C bit-bang");
+        // ---- Test 15: SPI mode 0 byte transmit ----
+        $display("\n[Test 15] SPI mode 0 byte transmit");
         reset_dut();
-        dut.tx_fifo[0] = 8'hA5;
-        dut.tx_count  = 4'd1;
-        prog[0] = 16'h8033;   // both idle high
-        prog[1] = 16'h8022;   // START: SDA low while SCL high
-        prog[2] = 16'h8000;   // SCL low
-        prog[3] = 16'h6000;   // PULL 0xA5 from TX FIFO
-        prog[4] = 16'h4000;   // OUT bit0 to SDA (bit = 1)
-        prog[5] = 16'h8002;   // SCL high
-        prog[6] = 16'h8000;   // SCL low
-        prog[7] = 16'h4000;   // OUT bit1 to SDA (bit = 0)
-        prog[8] = 16'h8002;
-        prog[9] = 16'h8000;
-        prog[10] = 16'h4000;
-        prog[11] = 16'h8002;
-        prog[12] = 16'h8000;
-        prog[13] = 16'h4000;
-        prog[14] = 16'h8002;
-        prog[15] = 16'h8000;
-        prog[16] = 16'h4000;
-        prog[17] = 16'h8002;
-        prog[18] = 16'h8000;
-        prog[19] = 16'h4000;
-        prog[20] = 16'h8002;
-        prog[21] = 16'h8000;
-        prog[22] = 16'h4000;
-        prog[23] = 16'h8002;
-        prog[24] = 16'h8000;
-        prog[25] = 16'h4000;
-        prog[26] = 16'h8002;
-        prog[27] = 16'h8000;
+        tx_byte = 8'h96;
+        host_write_byte(tx_byte);
+        write_cfg(5'd0, 8'd2);
+        write_cfg(5'd5, 8'd1);
+        prog[0] = 16'h8040;
+        prog[1] = 16'h8000;
+        prog[2] = 16'h6000;
+        for (i = 0; i < 8; i = i + 1) begin
+            prog[3+i*3] = 16'h4000;
+            prog[4+i*3] = 16'hB020;
+            prog[5+i*3] = 16'hB020;
+        end
+        prog[27] = 16'h8040;
         prog[28] = 16'hF000;
         load_prog(29);
-        wait_for_out(8'h02, 500);
-        check(8'h02, uo_out, "I2C START = SDA low, SCL high");
-        wait_for_out(8'h01, 500);
-        check(8'h01, uo_out[0], "I2C first data bit = 1");
+        for (i = 0; i < 8; i = i + 1) begin
+            @(posedge uo_out[1]); #1;
+            check(tx_byte[7-i], {7'b0, uo_out[0]}, "SPI MSB-first MOSI bit");
+            if (i == 0) check(8'h00, {7'b0, uo_out[2]}, "SPI CS active");
+        end
+        repeat (40) @(posedge clk); #1;
+        check(8'h01, {7'b0, uo_out[2]}, "SPI CS deasserted");
+
+        // ---- Test 16: I2C open-drain byte transaction ----
+        $display("\n[Test 16] I2C open-drain byte transaction");
+        reset_dut();
+        tx_byte = 8'h96;
+        host_write_byte(tx_byte);
+        load_protocol_config();
+        check(8'd2, dut.cfg_side_count, "host config loads side-set width");
+        check(8'd1, dut.cfg_side_oe, "host config selects output-enable side-set");
+        check(8'd1, dut.cfg_shift_dir, "host config selects MSB-first shift");
+        uio_in[6] = 1'b1;      // Target releases SDA during data.
+        prog[0] = 16'h8000;    // Low output values for open-drain lines
+        prog[1] = 16'h8300;    // Release both lines
+        prog[2] = 16'h8340;    // START: pull SDA low while SCL is released
+        prog[3] = 16'h8320;    // Pull SCL low, release SDA
+        prog[4] = 16'h6020;    // PULL byte while SCL stays low
+        for (i = 0; i < 8; i = i + 1) begin
+            prog[5+i*2] = 16'h4A20; // Set SDA direction and pull SCL low
+            prog[6+i*2] = 16'h0000; // Release SCL without consuming another bit
+        end
+        prog[21] = 16'h8320;   // Pull SCL low and release SDA for ACK
+        prog[22] = 16'h3200;   // Sample ACK while side-set releases SCL
+        prog[23] = 16'h8320;   // Pull SCL low
+        prog[24] = 16'h8360;   // Pull SDA low before STOP
+        prog[25] = 16'h0000;   // Release SCL
+        prog[26] = 16'h8300;   // Release SDA for STOP
+        prog[27] = 16'hF000;
+        load_prog(28);
+        while (!(i2c_sda == 1'b0 && i2c_scl == 1'b1)) @(posedge clk);
+        @(negedge i2c_scl);
+        for (i = 0; i < 8; i = i + 1) begin
+            @(posedge i2c_scl); #1;
+            check(tx_byte[7-i], {7'b0, i2c_sda}, "I2C MSB-first data bit");
+        end
+        uio_in[6] = 1'b0;      // Target pulls SDA low for ACK.
+        while (dut.isr_count != 5'd1) @(posedge clk);
+        uio_in[6] = 1'b1;
+        repeat (20) @(posedge clk); #1;
+        check(8'h00, {7'b0, dut.isr[0]}, "I2C target ACK sampled low");
+        check(1'b1, i2c_scl, "I2C STOP releases SCL");
+        check(1'b1, i2c_sda, "I2C STOP releases SDA");
 
         // ---- Test 17: loop wrap ----
         $display("\n[Test 17] loop wrap");
@@ -430,9 +505,9 @@ module tb;
         load_prog(3);
         repeat (40) @(posedge clk); #1;
         check(8'h00, uo_out, "WAIT rising edge stalls");
-        uio_in[0] = 1'b1;
+        uio_in[4] = 1'b1;
         @(posedge clk); #1;
-        uio_in[0] = 1'b0;
+        uio_in[4] = 1'b0;
         wait_for_out(8'h0F, 200);
         check(8'h0F, uo_out, "rising edge consumed");
 
@@ -443,12 +518,12 @@ module tb;
         prog[1] = 16'h80F0;
         prog[2] = 16'hF000;
         load_prog(3);
-        uio_in[0] = 1'b1;
+        uio_in[4] = 1'b1;
         repeat (40) @(posedge clk); #1;
         check(8'h00, uo_out, "WAIT falling edge stalls");
-        uio_in[0] = 1'b0;
+        uio_in[4] = 1'b0;
         @(posedge clk); #1;
-        uio_in[0] = 1'b1;
+        uio_in[4] = 1'b1;
         wait_for_out(8'h0F, 200);
         check(8'h0F, uo_out, "falling edge consumed");
 
@@ -487,6 +562,33 @@ module tb;
         check(8'hA5, dut.rx_fifo[5], "RX enqueue replaces tail");
         check(8'h06, {4'b0, dut.rx_rd[2:0]}, "RX read pointer advances");
         check(8'h06, {4'b0, dut.rx_wr[2:0]}, "RX write pointer advances");
+
+        // ---- Test 24: fractional clock-divider periods ----
+        $display("\n[Test 24] Fractional clock divider");
+        reset_dut();
+        write_cfg(5'd0, 8'd3);
+        write_cfg(5'd2, 8'd128);
+        dut.clkdiv_int_cnt = 16'd0;
+        dut.clkdiv_frac_acc = 8'd0;
+        cycle_count = 0;
+        last_tick_cycle = 0;
+        interval_first = 0;
+        interval_second = 0;
+        tick_count = 0;
+        while (tick_count < 3) begin
+            @(posedge clk); #1;
+            cycle_count = cycle_count + 1;
+            if (dut.tick) begin
+                if (tick_count == 1)
+                    interval_first = cycle_count - last_tick_cycle;
+                if (tick_count == 2)
+                    interval_second = cycle_count - last_tick_cycle;
+                last_tick_cycle = cycle_count;
+                tick_count = tick_count + 1;
+            end
+        end
+        check(8'd3, interval_first, "fractional divider short period");
+        check(8'd4, interval_second, "fractional divider long period");
 
         // ---- Summary ----
         $display("\n==========================================");

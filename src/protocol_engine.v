@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 2026 Your Name
  * SPDX-License-Identifier: Apache-2.0
  *
  * Protocol Engine State Machine (PESM)
@@ -31,10 +30,13 @@ module protocol_engine (
     reg [4:0]  cfg_pull_thresh;
     reg [4:0]  cfg_push_thresh;
     reg [3:0]  cfg_side_count;
+    reg        cfg_side_oe;
 
     reg [15:0] clkdiv_int_cnt;
     reg [7:0]  clkdiv_frac_acc;
     reg        tick;
+    wire [8:0] clkdiv_frac_sum = {1'b0, clkdiv_frac_acc} +
+                                  {1'b0, cfg_clkdiv_frac};
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -43,15 +45,13 @@ module protocol_engine (
             tick            <= 1'b0;
         end else begin
             if (clkdiv_int_cnt == 16'd0) begin
-                if (clkdiv_frac_acc >= 8'd255) begin
-                    clkdiv_frac_acc <= 8'd0;
-                    clkdiv_int_cnt  <= cfg_clkdiv_int;
-                    tick            <= 1'b1;
-                end else begin
-                    clkdiv_frac_acc <= clkdiv_frac_acc + cfg_clkdiv_frac;
-                    clkdiv_int_cnt  <= cfg_clkdiv_int;
-                    tick            <= 1'b1;
-                end
+                clkdiv_frac_acc <= clkdiv_frac_sum[7:0];
+                if (cfg_clkdiv_int == 16'd0)
+                    clkdiv_int_cnt <= 16'd0;
+                else
+                    clkdiv_int_cnt <= cfg_clkdiv_int - 1'b1 +
+                                      clkdiv_frac_sum[8];
+                tick <= 1'b1;
             end else begin
                 clkdiv_int_cnt <= clkdiv_int_cnt - 1'b1;
                 tick           <= 1'b0;
@@ -74,7 +74,7 @@ module protocol_engine (
     reg [1:0]  next_state;
     reg        irq_pending;
     reg [7:0]  host_fifo_data;
-    reg [7:0]  uio_in_prev;
+    reg [7:0]  pin_in_prev;
     reg [7:0]  wait_rise_pending;
     reg [7:0]  wait_fall_pending;
 
@@ -103,6 +103,7 @@ module protocol_engine (
     wire host_write_req = host_fifo_mode & uio_in[0];
     wire host_read_req  = host_fifo_mode & uio_in[1];
     wire rx_dequeue = host_read_req && (rx_count != 4'd0);
+    wire [7:0] protocol_in = {ui_in[3:0], uio_in[7:4]};
 
     // Autopull: only when the current instruction is OUT (consuming OSR)
     // Autopush: only when the current instruction is IN (filling ISR)
@@ -114,7 +115,11 @@ module protocol_engine (
                         && (instr[15:12] == 4'h3);   // OP_IN
 
     // Effective OSR value: if autopull fires this cycle, OUT sees the refilled data
-    wire [31:0] osr_eff       = autopull_hit ? {24'b0, tx_fifo[tx_rd[2:0]]} : osr;
+    wire [31:0] tx_fifo_word = cfg_shift_dir == 2'd0 ?
+                               {24'b0, tx_fifo[tx_rd[2:0]]} :
+                               {tx_fifo[tx_rd[2:0]], 24'b0};
+    wire [31:0] osr_eff       = autopull_hit ? tx_fifo_word : osr;
+    wire        out_bit       = cfg_shift_dir == 2'd0 ? osr_eff[0] : osr_eff[31];
     wire [4:0]  osr_count_eff = autopull_hit ? 5'd8 : osr_count;
 
     reg [15:0] load_shift;
@@ -160,8 +165,8 @@ module protocol_engine (
     localparam OP_SAMPLE = 4'hC;
     localparam OP_HALT   = 4'hF;
 
-    wire [7:0] wait_rise_event = uio_in & ~uio_in_prev;
-    wire [7:0] wait_fall_event = ~uio_in & uio_in_prev;
+    wire [7:0] wait_rise_event = protocol_in & ~pin_in_prev;
+    wire [7:0] wait_fall_event = ~protocol_in & pin_in_prev;
     wire wait_edge_cycle = !uio_in[3] && !load_mode && tick &&
                            state == S_EXEC && opcode == OP_WAIT;
     wire [7:0] wait_rise_clear_mask =
@@ -191,7 +196,7 @@ module protocol_engine (
             pin_out <= 8'h0; pin_oe <= 8'h0;
             delay_cnt <= 16'h0; state <= S_FETCH; next_state <= S_FETCH;
             irq_pending <= 1'b0;
-            uio_in_prev <= 8'h00;
+            pin_in_prev <= 8'h00;
             wait_rise_pending <= 8'h00;
             wait_fall_pending <= 8'h00;
             tx_rd <= 4'd0;
@@ -205,9 +210,10 @@ module protocol_engine (
             cfg_autopull <= 1'b0; cfg_autopush <= 1'b0;
             cfg_pull_thresh <= 5'd0; cfg_push_thresh <= 5'd31;
             cfg_side_count <= 4'd0;
+            cfg_side_oe <= 1'b0;
             for (i = 0; i < 32; i = i + 1) imem[i] <= 16'hF000;
         end else begin
-            uio_in_prev <= uio_in;
+            pin_in_prev <= protocol_in;
             if (uio_in[3] || load_mode) begin
                 wait_rise_pending <= 8'h00;
                 wait_fall_pending <= 8'h00;
@@ -252,6 +258,7 @@ module protocol_engine (
                                 5'd8:  cfg_pull_thresh      <= cfg_byte[4:0];
                                 5'd9:  cfg_push_thresh      <= cfg_byte[4:0];
                                 5'd10: cfg_side_count       <= cfg_byte[3:0];
+                                5'd11: cfg_side_oe          <= cfg_byte[0];
                                 default: ;
                             endcase
                             cfg_bit   <= 3'd0;
@@ -284,9 +291,13 @@ module protocol_engine (
                         if (side_mask != 4'b0000 &&
                             opcode != OP_SET && opcode != OP_TOGGLE &&
                             opcode != OP_WAIT) begin
-                            next_pin_out[3:0] =
-                                (next_pin_out[3:0] & ~side_mask) |
-                                (side_set & side_mask);
+                            if (cfg_side_oe)
+                                pin_oe[3:0] <= (pin_oe[3:0] & ~side_mask) |
+                                               (side_set & side_mask);
+                            else
+                                next_pin_out[3:0] =
+                                    (next_pin_out[3:0] & ~side_mask) |
+                                    (side_set & side_mask);
                         end
 
                         next_state = S_FETCH;
@@ -322,7 +333,7 @@ module protocol_engine (
 
                             OP_WAIT: begin
                                 if ((!side_set[0] &&
-                                     uio_in[operand[3:1]] == operand[0]) ||
+                                     protocol_in[operand[3:1]] == operand[0]) ||
                                     (side_set[0] && operand[0] &&
                                      wait_rise_pending[operand[3:1]]) ||
                                     (side_set[0] && !operand[0] &&
@@ -333,13 +344,18 @@ module protocol_engine (
                             end
 
                             OP_IN: begin
-                                isr <= {isr[30:0], uio_in[operand[2:0]]};
+                                isr <= {isr[30:0], protocol_in[operand[2:0]]};
                                 isr_count <= isr_count + 1'b1;
                                 pc_target = pc + 1'b1;
                             end
 
                             OP_OUT: begin
-                                next_pin_out[operand[2:0]] = osr_eff[0];
+                                if (operand[3]) begin
+                                    next_pin_out[operand[2:0]] = 1'b0;
+                                    pin_oe[operand[2:0]] <= ~out_bit;
+                                end else begin
+                                    next_pin_out[operand[2:0]] = out_bit;
+                                end
                                 if (cfg_shift_dir == 2'd0) osr <= {1'b0, osr_eff[31:1]};
                                 else                       osr <= {osr_eff[30:0], 1'b0};
                                 if (osr_count_eff > 5'd0)
@@ -361,7 +377,7 @@ module protocol_engine (
 
                             OP_PULL: begin
                                 if (!tx_empty) begin
-                                    osr <= {24'b0, tx_fifo[tx_rd[2:0]]};
+                                    osr <= tx_fifo_word;
                                     tx_rd <= tx_rd + 1'b1;
                                     osr_count <= 5'd8;
                                     pc_target = pc + 1'b1;
@@ -370,11 +386,13 @@ module protocol_engine (
 
                             OP_MOV: begin
                                 case (operand[2:0])
-                                    3'h0: osr <= {24'b0, x_reg};
+                                    3'h0: osr <= cfg_shift_dir == 2'd0 ?
+                                                  {24'b0, x_reg} : {x_reg, 24'b0};
                                     3'h1: x_reg <= osr[7:0];
-                                    3'h2: osr <= {24'b0, y_reg};
+                                    3'h2: osr <= cfg_shift_dir == 2'd0 ?
+                                                  {24'b0, y_reg} : {y_reg, 24'b0};
                                     3'h3: y_reg <= osr[7:0];
-                                    3'h4: isr <= {24'b0, uio_in};
+                                    3'h4: isr <= {24'b0, protocol_in};
                                     3'h5: next_pin_out = isr[7:0];
                                     3'h6: next_pin_out = x_reg;
                                     3'h7: next_pin_out = y_reg;
@@ -416,7 +434,7 @@ module protocol_engine (
                             end
 
                             OP_SAMPLE: begin
-                                isr <= {24'b0, uio_in};
+                                isr <= {24'b0, protocol_in};
                                 isr_count <= 5'd8;
                                 pc_target = pc + 1'b1;
                             end
@@ -435,7 +453,7 @@ module protocol_engine (
 
                         // Autopush (autopull is now folded into OP_OUT)
                         if (autopush_hit) begin
-                            rx_fifo[rx_wr[2:0]] <= {isr[6:0], uio_in[operand[2:0]]};
+                            rx_fifo[rx_wr[2:0]] <= {isr[6:0], protocol_in[operand[2:0]]};
                             rx_wr <= rx_wr + 1'b1;
                             isr_count <= 5'd0;
                         end
@@ -496,10 +514,10 @@ module protocol_engine (
     end
 
     assign uo_out  = (host_fifo_mode && host_read_req) ? host_fifo_data : pin_out;
-    assign uio_out = pin_out;
-    assign uio_oe  = pin_oe;
+    assign uio_out = {pin_out[3:0], 4'b0000};
+    assign uio_oe  = {pin_oe[3:0], 4'b0000};
 
-    wire _unused = &{ena, ui_in, 1'b0};
+    wire _unused = &{ena, 1'b0};
 
 endmodule
 
