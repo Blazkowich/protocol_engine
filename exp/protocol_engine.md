@@ -4,7 +4,7 @@
 
 ## Diagram
 
-![Diagram](protocol_engine.svg "Diagram")
+![Diagram](diagram.svg "Diagram")
 
 ## Ports
 
@@ -155,4 +155,4 @@
 
 The execution FSM advances only on a divider-generated `tick`: `S_FETCH` latches an instruction, `S_EXEC` performs the operation or stalls on a wait/FIFO condition, and `S_DELAY` counts down explicit or per-instruction delay cycles. A completed instruction normally returns to `S_FETCH`, subject to wrap addressing and delay insertion.
 
-![Diagram_state_machine_0](fsm_protocol_engine_00.svg "Diagram")
+![Diagram_state_machine_0](fsm.svg "Diagram")
