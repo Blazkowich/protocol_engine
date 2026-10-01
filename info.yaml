@@ -6,9 +6,9 @@ project:
   language: "Verilog"
   clock_hz: 50000000
   tiles: "6x4"
-  top_module: "tt_um_protocol_engine"
+  top_module: "protocol_engine"
   source_files:
-    - "tt_um_protocol_engine.v"
+    - "protocol_engine.v"
   pinout:
     ui[0]: ""
     ui[1]: ""

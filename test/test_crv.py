@@ -75,19 +75,20 @@ async def constrained_random_stress(dut):
 def run():
     from cocotb_tools.runner import get_runner
 
-    project_dir = Path(__file__).resolve().parent
+    project_dir = Path(__file__).resolve().parents[1]
+    test_dir = Path(__file__).resolve().parent
     build_dir = Path("/tmp/pesm_cocotb_build")
     runner = get_runner("icarus")
     runner.build(
-        sources=[project_dir / "src" / "tt_um_protocol_engine.v"],
-        hdl_toplevel="tt_um_protocol_engine",
+        sources=[project_dir / "src" / "protocol_engine.v"],
+        hdl_toplevel="protocol_engine",
         build_dir=build_dir,
         always=True,
     )
     runner.test(
-        hdl_toplevel="tt_um_protocol_engine",
+        hdl_toplevel="protocol_engine",
         test_module=Path(__file__).stem,
-        test_dir=project_dir,
+        test_dir=test_dir,
         build_dir=build_dir,
         results_xml=str(build_dir / "results.xml"),
         extra_env={"PYTHONDONTWRITEBYTECODE": "1"},

@@ -29,7 +29,7 @@
 | Property | Value |
 |---|---|
 | **Project name** | Protocol Engine State Machine (PESM) |
-| **Top module** | `tt_um_protocol_engine` |
+| **Top module** | `protocol_engine` |
 | **Language** | Verilog-2001 / SystemVerilog-2012 |
 | **Target process** | IHP CMOS5L (130 nm) |
 | **Tile size** | 6×4 Tiny Tapeout tiles (~1002 µm × 432 µm) |
@@ -522,7 +522,7 @@ This design uses **three layers** of verification. The competition explicitly we
 
 ### 10.1 Directed tests
 
-`src/tb.v` contains 23 directed test groups, including:
+`test/tb.v` contains 23 directed test groups, including:
 
 | Test groups | Coverage |
 |---|---|
@@ -535,12 +535,12 @@ This design uses **three layers** of verification. The competition explicitly we
 
 ### 10.2 Constrained-random tests
 
-`test_crv.py` runs a seeded constrained-random program of 31 terminating `NOP`, `SET`, and `TOGGLE` instructions through the real host loader. A small reference model checks `uo_out` after each instruction, and the test checks outputs for unknown values.
+`test/test_crv.py` runs a seeded constrained-random program of 31 terminating `NOP`, `SET`, and `TOGGLE` instructions through the real host loader. A small reference model checks `uo_out` after each instruction, and the test checks outputs for unknown values.
 
 Run it with cocotb and Icarus Verilog installed:
 
 ```bash
-python3 test_crv.py
+python3 test/test_crv.py
 ```
 
 This covers a constrained instruction subset; it is not yet a randomized reference model for the full ISA.
@@ -549,7 +549,7 @@ This covers a constrained instruction subset; it is not yet a randomized referen
 
 *The current properties are standalone models, not proofs of this RTL.*
 
-The files in `formal/` currently check standalone delay and level-WAIT models; they are not bound to `tt_um_protocol_engine`. Formal proofs of the RTL, including edge-WAIT behavior, remain incomplete.
+The files in `formal/` currently check standalone delay and level-WAIT models; they are not bound to `protocol_engine`. Formal proofs of the RTL, including edge-WAIT behavior, remain incomplete.
 
 - `DELAY` counts down by exactly 1 per tick until it reaches 0.
 - `WAIT` releases only when the pin matches the requested level.
@@ -569,7 +569,7 @@ endproperty
 
 ```bash
 # Compile
-iverilog -g2012 -o sim.vvp src/tt_um_protocol_engine.v src/tb.v
+iverilog -g2012 -o sim.vvp src/protocol_engine.v test/tb.v
 
 # Run
 vvp sim.vvp
@@ -604,7 +604,7 @@ Expected output:
 
 ```bash
 cd path/to/protocol_engine
-iverilog -g2012 -o sim.vvp src/tt_um_protocol_engine.v src/tb.v
+iverilog -g2012 -o sim.vvp src/protocol_engine.v test/tb.v
 vvp sim.vvp
 ```
 
@@ -652,15 +652,14 @@ Add these signals to the wave window:
 ```
 protocol_emulator/
 ├── src/
-│   └── tt_um_protocol_engine.v
-├── tb/
-│   └── tb.v
+│   └── protocol_engine.v
+├── test/
+│   ├── tb.v
+│   └── test_crv.py
 ├── formal/
 │   ├── delay_props.sv
 │   ├── wait_props.sv
 │   └── sby_delay.sby
-├── test_crv/
-│   └── test_crv.py
 ├── docs/
 │   └── info.md              ← this file
 ├── config.json
@@ -679,9 +678,9 @@ project:
   language: "Verilog"
   clock_hz: 50000000
   tiles: "6x4"
-  top_module: "tt_um_protocol_engine"
+   top_module: "protocol_engine"
   source_files:
-    - "src/tt_um_protocol_engine.v"
+   - "src/protocol_engine.v"
   pinout:
     ui[0]: ""  ui[1]: ""  ui[2]: ""  ui[3]: ""
     ui[4]: ""  ui[5]: ""  ui[6]: ""  ui[7]: ""
