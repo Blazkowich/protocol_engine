@@ -1,34 +1,31 @@
-import random
+"""Cocotb test that works for both the RTL and gate-level flows.
+
+Works under either HDL top:
+  * `tb` (the tt-gds-action template; tb.v does NOT generate clk, so the test
+    must drive it) — used by `make` / gl_test.
+  * `tt_um_protocol_engine` (DUT as top) — used by run_tests.py --all.
+In both cases, this test owns the clock.
+"""
 import os
-from pathlib import Path
+import random
 import tempfile
+from pathlib import Path
 
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import FallingEdge, RisingEdge, Timer
 
 
-def _hdl_top_name() -> str:
-    """Name of the module cocotb was launched with as hdl_toplevel."""
-    top = cocotb.top
-    return getattr(top, "_name", "") if top is not None else ""
-
-
 async def _reset_dut(dut):
-    """Hold reset for a few clean clock edges, then release it.
+    """Start the clock (tb.v does not provide one), then release reset."""
+    cocotb.start_soon(Clock(dut.clk, 10, unit="ns").start())
 
-    Works under either HDL top:
-      * `tb`                          -> tb.v drives clk, we just wait
-      * `tt_um_protocol_engine`       -> cocotb drives clk from the test
-    """
-    if _hdl_top_name() != "tb":
-        # Only start a clock when the DUT itself is the HDL top.
-        cocotb.start_soon(Clock(dut.clk, 20, unit="step").start())
-
-    dut.ena.value = 1
-    dut.ui_in.value = 0
+    dut.ena.value    = 1
+    dut.ui_in.value  = 0
     dut.uio_in.value = 0
-    dut.rst_n.value = 0
+    dut.rst_n.value  = 0
+
+    # Hold reset across several full clock periods (10 ns half-period here).
     for _ in range(5):
         await RisingEdge(dut.clk)
     dut.rst_n.value = 1
@@ -64,34 +61,33 @@ async def constrained_random_stress(dut):
     await FallingEdge(dut.clk)
     dut.uio_in.value = 0x08
     await RisingEdge(dut.clk)
-    await Timer(1, unit="step")
+
     for instr in program:
         for b in range(15, -1, -1):
             bit = (instr >> b) & 1
             await FallingEdge(dut.clk)
             dut.uio_in.value = 0x08 | bit
             await RisingEdge(dut.clk)
-            await Timer(1, unit="step")
             await FallingEdge(dut.clk)
-            dut.uio_in.value = 0x0A | bit
+            dut.uio_in.value = 0x0A | bit      # LOAD_CLK high latches
             await RisingEdge(dut.clk)
-            await Timer(1, unit="step")
             await FallingEdge(dut.clk)
-            dut.uio_in.value = 0x08 | bit
+            dut.uio_in.value = 0x08 | bit      # LOAD_CLK low
 
     await FallingEdge(dut.clk)
     dut.uio_in.value = 0x00
     await RisingEdge(dut.clk)
-    await Timer(1, unit="step")
+    await RisingEdge(dut.clk)
 
-    for instr, expected_output in zip(program[:-1], expected_trace):
+    for _, expected_output in zip(program[:-1], expected_trace):
         await RisingEdge(dut.clk)
-        await Timer(1, unit="step")
         await RisingEdge(dut.clk)
-        await Timer(1, unit="step")
         assert dut.uo_out.value.is_resolvable, "uo_out has X"
         assert dut.uio_oe.value.is_resolvable, "uio_oe has X"
-        assert int(dut.uo_out.value) == expected_output
+        assert int(dut.uo_out.value) == expected_output, (
+            f"expected 0x{expected_output:02X}, got "
+            f"0x{int(dut.uo_out.value):02X}"
+        )
         assert int(dut.uio_oe.value) == 0
 
     dut._log.info("Constrained-random test passed: 31 modeled instructions")
