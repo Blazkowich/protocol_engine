@@ -25,6 +25,7 @@ module tb;
     integer cycle_count, last_tick_cycle, interval_first, interval_second, tick_count;
     reg [7:0] tx_byte;
     reg [15:0] prog [0:31];
+    reg [7:0] cfg_values [0:11];
     reg [31:0] rnd_a, rnd_b;
 
     wire i2c_scl = uio_oe[5] ? uio_out[5] : 1'b1;
@@ -93,6 +94,22 @@ module tb;
                 endcase
                 shift_cfg_byte(cfg_value);
             end
+            uio_in[3] = 1'b0;
+            uio_in[1] = 1'b0;
+            uio_in[0] = 1'b0;
+            @(posedge clk); #1;
+        end
+    endtask
+
+    task load_config_values;
+        integer cfg_index;
+        begin
+            @(posedge clk); #1;
+            uio_in[3] = 1'b1;
+            uio_in[2] = 1'b1;
+            @(posedge clk); #1;
+            for (cfg_index = 0; cfg_index < 12; cfg_index = cfg_index + 1)
+                shift_cfg_byte(cfg_values[cfg_index]);
             uio_in[3] = 1'b0;
             uio_in[1] = 1'b0;
             uio_in[0] = 1'b0;
@@ -724,6 +741,93 @@ module tb;
             else
                 check(8'h00, uio_out, "OUT upper pin leaves UIO low");
         end
+
+            // ---- Test 30: host FIFO level controls and empty read ----
+            $display("\n[Test 30] Host FIFO level controls");
+            reset_dut();
+            uio_in = 8'h06; // host FIFO mode + read while RX is empty
+            repeat (2) @(posedge clk); #1;
+            check(8'h00, dut.rx_count, "empty host read keeps RX empty");
+            check(8'h00, dut.rx_rd, "empty host read keeps RX pointer");
+
+            reset_dut();
+            ui_in = 8'hA5;
+            uio_in = 8'h05; // hold host FIFO mode + write for eight clocks
+            repeat (8) @(posedge clk); #1;
+            check(8'd8, dut.tx_count, "held writes fill TX FIFO");
+            check(8'd8, dut.tx_wr, "TX pointer wraps after 8 writes");
+            @(negedge clk);
+            ui_in = 8'h5A;
+            repeat (2) @(posedge clk); #1;
+            check(8'd8, dut.tx_count, "full TX FIFO rejects held writes");
+            check(8'd8, dut.tx_wr, "full TX pointer stays fixed");
+            check(8'hA5, dut.fifo_storage.tx_fifo[0], "rejected write preserves head");
+
+            // ---- Test 31: PULL stalls on empty until host data arrives ----
+            $display("\n[Test 31] Empty PULL stall and release");
+            reset_dut();
+            prog[0] = 16'h6000;
+            prog[1] = 16'h80F0;
+            prog[2] = 16'hF000;
+            load_prog(3);
+            repeat (30) @(posedge clk); #1;
+            check(8'h00, uo_out, "empty PULL stalls before SET");
+            check(8'd0, {3'b0, dut.pc}, "empty PULL does not retire");
+            host_write_byte(8'hA5);
+            wait_for_out(8'h0F, 100);
+            check(8'hA5, dut.osr[7:0], "PULL consumes host byte");
+
+            // ---- Test 32: full PUSH stalls until host dequeues ----
+            $display("\n[Test 32] Full PUSH stall and release");
+            reset_dut();
+            for (j = 0; j < 8; j = j + 1) begin
+                prog[j*2] = 16'hC000;     // SAMPLE protocol inputs
+                prog[j*2+1] = 16'h5000;   // PUSH each captured byte
+            end
+            prog[16] = 16'h5000;          // Stall on this PUSH while RX is full
+            prog[17] = 16'h80F0;
+            prog[18] = 16'hF000;
+            load_prog(19);
+            repeat (60) @(posedge clk); #1;
+            check(8'd8, dut.rx_count, "eight SAMPLE/PUSH pairs fill RX");
+            check(8'd16, {3'b0, dut.pc}, "PUSH stays at same PC");
+            check(8'h00, uo_out, "full PUSH stalls before SET");
+            uio_in = 8'h06; // host FIFO mode + RX read; replaces the full head
+            @(posedge clk); #1;
+            check(8'h00, uo_out, "host reads old RX head");
+            check(8'd8, dut.rx_count, "host read plus PUSH keeps full");
+            uio_in = 8'h00;
+            wait_for_out(8'h0F, 100);
+            check(8'd8, dut.rx_count, "PUSH resumes after host read");
+
+            // ---- Test 33: autopush threshold through external configuration ----
+            $display("\n[Test 33] Autopush external config and threshold");
+            reset_dut();
+            cfg_values[0] = 8'd0;  cfg_values[1] = 8'd0;
+            cfg_values[2] = 8'd0;  cfg_values[3] = 8'd31;
+            cfg_values[4] = 8'd0;  cfg_values[5] = 8'd0;
+            cfg_values[6] = 8'd0;  cfg_values[7] = 8'd1;
+            cfg_values[8] = 8'd0;  cfg_values[9] = 8'd1;
+            cfg_values[10] = 8'd0; cfg_values[11] = 8'd0;
+            load_config_values();
+            uio_in[4] = 1'b1;
+            prog[0] = 16'h3000; // One IN must not reach threshold 1
+            prog[1] = 16'hF000;
+            load_prog(2);
+            repeat (30) @(posedge clk); #1;
+            check(8'd0, dut.rx_count, "autopush waits below threshold");
+            check(8'd1, dut.isr_count, "first IN increments ISR count");
+
+            prog[0] = 16'h3000;
+            prog[1] = 16'h3000; // Second IN reaches threshold and autopushes
+            prog[2] = 16'hF000;
+            load_prog(3);
+            repeat (40) @(posedge clk); #1;
+            check(8'd1, dut.rx_count, "autopush enqueues at threshold");
+            check(8'd0, dut.isr_count, "autopush clears ISR count");
+            uio_in = 8'h16; // Preserve protocol pin 0 high; host-read RX
+            @(posedge clk); #1;
+            check(8'h07, uo_out, "autopush retains prior ISR bits");
 
         // ---- Summary ----
         $display("\n==========================================");

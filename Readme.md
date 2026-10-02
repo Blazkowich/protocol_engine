@@ -512,7 +512,7 @@ This design uses **three layers** of verification. The competition explicitly we
 
 ### 10.1 Directed tests
 
-`test/tb.v` contains 29 directed test groups and 137 checks, including:
+`test/tb.v` contains 33 directed test groups and 158 checks, including:
 
 | Test groups | Coverage                                                                   |
 | ----------- | -------------------------------------------------------------------------- |
@@ -525,6 +525,8 @@ This design uses **three layers** of verification. The competition explicitly we
 | 23–24       | Full TX/RX FIFO replacement and fractional divider periods                 |
 | 25–26       | All conditional `JMP` variants and all documented `MOV` variants           |
 | 27–29       | All `IN` pin mappings, level `WAIT`-low, and `SET`/`OUT` pin routing       |
+
+The added host/FIFO cases cover held requests, empty reads, a PULL stall released by host data, a full PUSH stall released by a host read, and autopush through the serial config loader.
 
 ### 10.2 Constrained-random tests
 
@@ -580,7 +582,7 @@ Expected output:
  Protocol Engine Test Suite
 ==========================================
 ...
- Results: 77 passed, 0 failed
+ Results: 158 passed, 0 failed
  ALL TESTS PASSED
 ==========================================
 ```
@@ -822,7 +824,7 @@ A condensed status based on the RTL and current test evidence. Simulation does n
 
 ### Verification
 
-- [x] Directed tests (24 groups, 77 checks)
+- [x] Directed tests (33 groups, 158 checks)
 - [x] Constrained-random test (31-instruction NOP/SET/TOGGLE subset)
 - [ ] Formal verification (SymbiYosys)
 - [ ] Coverage analysis
