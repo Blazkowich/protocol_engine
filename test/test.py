@@ -89,10 +89,11 @@ async def constrained_random_stress(dut):
     # ---- Leave load mode; CPU resets PC and starts executing ---------------
     await FallingEdge(dut.clk)
     dut.uio_in.value = 0x00
-    # Extra margin: the FSM needs load_mode -> S_FETCH -> S_EXEC before the
-    # first instruction retires. In GL, give it a couple more full cycles
-    # than strictly necessary.
-    for _ in range(4):
+    # Alignment: edge 1 clears load_mode, edge 2 is FETCH, edge 3 is EXEC of
+    # instr 0 (pin_out updates). Each later instruction takes 2 cycles. The
+    # compare loop below waits 2 cycles per instruction, so only 2 cycles of
+    # margin go here; any more and the check samples instr k+1's result.
+    for _ in range(2):
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
 
