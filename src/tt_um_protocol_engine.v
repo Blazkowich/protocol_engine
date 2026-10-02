@@ -576,21 +576,21 @@ module protocol_instruction_memory (
 
     reg [15:0] words [0:31];
     reg [31:0] word_valid;
+    integer wi;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             word_valid <= 32'b0;
+            for (wi = 0; wi < 32; wi = wi + 1)
+                words[wi] <= 16'hF000;
         end else if (write_enable) begin
             word_valid[write_address] <= 1'b1;
+            words[write_address]      <= write_data;
         end
     end
 
-    always @(posedge clk) begin
-        if (rst_n && write_enable)
-            words[write_address] <= write_data;
-    end
-
     assign read_data = word_valid[read_address] ? words[read_address] : 16'hF000;
+
 endmodule
 
 module protocol_fifo_storage (
