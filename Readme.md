@@ -29,7 +29,7 @@
 | Property           | Value                                      |
 | ------------------ | ------------------------------------------ |
 | **Project name**   | Protocol Engine State Machine (PESM)       |
-| **Top module**     | `protocol_engine`                          |
+| **Top module**     | `tt_um_protocol_engine`                    |
 | **Language**       | Verilog-2001 / SystemVerilog-2012          |
 | **Target process** | IHP CMOS5L (130 nm)                        |
 | **Tile size**      | 6×4 Tiny Tapeout tiles (~1002 µm × 432 µm) |
@@ -544,7 +544,7 @@ This covers a constrained instruction subset; it is not yet a randomized referen
 
 _The current properties are standalone models, not proofs of this RTL._
 
-The files in `formal/` currently check standalone delay and level-WAIT models; they are not bound to `protocol_engine`. Formal proofs of the RTL, including edge-WAIT behavior, remain incomplete.
+The files in `formal/` currently check standalone delay and level-WAIT models; they are not bound to `tt_um_protocol_engine`. Formal proofs of the RTL, including edge-WAIT behavior, remain incomplete.
 
 - `DELAY` counts down by exactly 1 per tick until it reaches 0.
 - `WAIT` releases only when the pin matches the requested level.
@@ -600,8 +600,8 @@ Expected output:
 ### 11.2 Compile and run
 
 ```bash
-cd path/to/protocol_engine
-iverilog -g2012 -o sim.vvp src/protocol_engine.v test/tb.v
+cd path/to/tt_um_protocol_engine
+iverilog -g2012 -o sim.vvp src/tt_um_protocol_engine.v test/tb.v
 vvp sim.vvp
 ```
 
@@ -649,7 +649,7 @@ Add these signals to the wave window:
 ```
 protocol_emulator/
 ├── src/
-│   └── protocol_engine.v
+│   └── tt_um_protocol_engine.v
 ├── test/
 │   ├── tb.v
 │   └── test_crv.py
@@ -674,9 +674,9 @@ project:
   language: "Verilog"
   clock_hz: 50000000
   tiles: "6x4"
-   top_module: "protocol_engine"
+   top_module: "tt_um_protocol_engine"
   source_files:
-      - "protocol_engine.v"
+      - "tt_um_protocol_engine.v"
   pinout:
       ui[0]: "PROTO_IN4"
       ui[1]: "PROTO_IN5"

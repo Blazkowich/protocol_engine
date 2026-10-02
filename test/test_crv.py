@@ -84,13 +84,13 @@ def run():
         build_dir.mkdir(parents=True, exist_ok=True)
         runner = get_runner("icarus")
         runner.build(
-            sources=[project_dir / "src" / "protocol_engine.v"],
-            hdl_toplevel="protocol_engine",
+            sources=[project_dir / "src" / "tt_um_protocol_engine.v"],
+            hdl_toplevel="tt_um_protocol_engine",
             build_dir=build_dir,
             always=True,
         )
         runner.test(
-            hdl_toplevel="protocol_engine",
+            hdl_toplevel="tt_um_protocol_engine",
             test_module=Path(__file__).stem,
             test_dir=test_dir,
             build_dir=build_dir,

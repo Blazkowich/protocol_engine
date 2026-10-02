@@ -59,7 +59,7 @@ def main():
                 "-g2012",
                 "-o",
                 str(simulation),
-                str(ROOT / "src" / "protocol_engine.v"),
+                str(ROOT / "src" / "tt_um_protocol_engine.v"),
                 str(ROOT / "test" / "tb.v"),
             ],
             build_dir,
