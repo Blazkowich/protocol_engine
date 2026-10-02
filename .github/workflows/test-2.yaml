@@ -15,13 +15,13 @@ jobs:
 
       # Set Python up and install cocotb
       - name: Setup python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install Python packages
         shell: bash
-        run: pip install -r test/requirements.txt
+        run: pip install -r test/requirements-test.txt
 
       - name: Run tests
         run: |
