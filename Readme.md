@@ -512,7 +512,7 @@ This design uses **three layers** of verification. The competition explicitly we
 
 ### 10.1 Directed tests
 
-`test/tb.v` contains 24 directed test groups and 77 checks, including:
+`test/tb.v` contains 29 directed test groups and 137 checks, including:
 
 | Test groups | Coverage                                                                   |
 | ----------- | -------------------------------------------------------------------------- |
@@ -523,6 +523,8 @@ This design uses **three layers** of verification. The competition explicitly we
 | 17–20       | Wrap, IRQ latch, host FIFO, simultaneous transfers                         |
 | 21–22       | Latched rising- and falling-edge `WAIT`, including a short pulse           |
 | 23–24       | Full TX/RX FIFO replacement and fractional divider periods                 |
+| 25–26       | All conditional `JMP` variants and all documented `MOV` variants           |
+| 27–29       | All `IN` pin mappings, level `WAIT`-low, and `SET`/`OUT` pin routing       |
 
 ### 10.2 Constrained-random tests
 

@@ -174,6 +174,36 @@ module tb;
         end
     endtask
 
+    task direct_instruction(
+        input [4:0] address,
+        input [15:0] instruction,
+        input [7:0] x_value,
+        input [7:0] y_value
+    );
+        begin
+            @(negedge clk);
+            dut.pc = address;
+            dut.state = 2'd1;
+            dut.instr = instruction;
+            dut.x_reg = x_value;
+            dut.y_reg = y_value;
+            @(posedge clk); #1;
+        end
+    endtask
+
+    task check32(input [31:0] exp, input [31:0] act, input [255:0] label);
+        begin
+            if (exp === act) begin
+                $display("  [PASS] %0s = 0x%08h", label, act);
+                pass_count = pass_count + 1;
+            end else begin
+                $display("  [FAIL] %0s: expected 0x%08h, got 0x%08h",
+                         label, exp, act);
+                fail_count = fail_count + 1;
+            end
+        end
+    endtask
+
     // ---------- Test Suite ----------
     initial begin
         $dumpfile("tb.vcd");
@@ -589,6 +619,111 @@ module tb;
         end
         check(8'd3, interval_first, "fractional divider short period");
         check(8'd4, interval_second, "fractional divider long period");
+
+        // ---- Test 25: conditional and boundary JMP variants ----
+        $display("\n[Test 25] JMP variants");
+        reset_dut();
+        direct_instruction(5'd4, 16'h1490, 8'd1, 8'd0); // JMP X-- -> 9
+        check(8'd9, {3'b0, dut.pc}, "X-- branch taken");
+        check(8'd0, dut.x_reg, "JMP X-- decrements X");
+        direct_instruction(5'd4, 16'h1490, 8'd0, 8'd0);
+        check(8'd5, {3'b0, dut.pc}, "X-- falls through at zero");
+        check(8'd0, dut.x_reg, "X-- preserves zero X");
+        direct_instruction(5'd4, 16'h15A0, 8'd0, 8'd1); // JMP Y-- -> 10
+        check(8'd10, {3'b0, dut.pc}, "Y-- branch taken");
+        check(8'd0, dut.y_reg, "JMP Y-- decrements Y");
+        direct_instruction(5'd4, 16'h15A0, 8'd0, 8'd0);
+        check(8'd5, {3'b0, dut.pc}, "Y-- falls through at zero");
+        check(8'd0, dut.y_reg, "Y-- preserves zero Y");
+        direct_instruction(5'd4, 16'h16B0, 8'd0, 8'd0); // JMP !X -> 11
+        check(8'd11, {3'b0, dut.pc}, "!X branches at zero");
+        direct_instruction(5'd4, 16'h16B0, 8'd1, 8'd0);
+        check(8'd5, {3'b0, dut.pc}, "!X falls through nonzero");
+        direct_instruction(5'd4, 16'h17C0, 8'd0, 8'd0); // JMP !Y -> 12
+        check(8'd12, {3'b0, dut.pc}, "!Y branches at zero");
+        direct_instruction(5'd4, 16'h17C0, 8'd0, 8'd1);
+        check(8'd5, {3'b0, dut.pc}, "!Y falls through nonzero");
+        direct_instruction(5'd4, 16'h1000, 8'd0, 8'd0); // JMP 0
+        check(8'd0, {3'b0, dut.pc}, "JMP target zero");
+        direct_instruction(5'd4, 16'h18F0, 8'd0, 8'd0); // JMP 31
+        check(8'd31, {3'b0, dut.pc}, "JMP target 31");
+
+        // ---- Test 26: MOV variants ----
+        $display("\n[Test 26] MOV variants");
+        reset_dut();
+        dut.cfg_shift_dir = 2'd0;
+        direct_instruction(5'd4, 16'h7000, 8'h5A, 8'hA5); // X -> OSR
+        check32(32'h0000005A, dut.osr, "MOV X to OSR LSB-first");
+        dut.osr = 32'h123456AB;
+        direct_instruction(5'd4, 16'h7100, 8'h00, 8'h00); // OSR -> X
+        check(8'hAB, dut.x_reg, "MOV OSR low byte to X");
+        direct_instruction(5'd4, 16'h7200, 8'h5A, 8'hA5); // Y -> OSR
+        check32(32'h000000A5, dut.osr, "MOV Y to OSR LSB-first");
+        dut.osr = 32'h89ABCDEF;
+        direct_instruction(5'd4, 16'h7300, 8'h00, 8'h00); // OSR -> Y
+        check(8'hEF, dut.y_reg, "MOV OSR low byte to Y");
+        ui_in = 8'h0A;
+        uio_in = 8'h50;
+        direct_instruction(5'd4, 16'h7400, 8'h00, 8'h00); // protocol input -> ISR
+        check32(32'h000000A5, dut.isr, "MOV protocol input bus to ISR");
+        dut.isr = 32'h87654321;
+        direct_instruction(5'd4, 16'h7500, 8'h00, 8'h00); // ISR -> pins
+        check(8'h21, uo_out, "MOV ISR low byte to pins");
+        direct_instruction(5'd4, 16'h7600, 8'hC6, 8'h00); // X -> pins
+        check(8'hC6, uo_out, "MOV X to pins");
+        direct_instruction(5'd4, 16'h7700, 8'h00, 8'h3D); // Y -> pins
+        check(8'h3D, uo_out, "MOV Y to pins");
+        dut.cfg_shift_dir = 2'd1;
+        direct_instruction(5'd4, 16'h7000, 8'h5A, 8'hA5);
+        check32(32'h5A000000, dut.osr, "MOV X to OSR MSB-first");
+        direct_instruction(5'd4, 16'h7200, 8'h5A, 8'hA5);
+        check32(32'hA5000000, dut.osr, "MOV Y to OSR MSB-first");
+
+        // ---- Test 27: IN input-pin mapping ----
+        $display("\n[Test 27] IN pin mapping");
+        reset_dut();
+        ui_in = 8'h05;
+        uio_in = 8'hA0;
+        for (j = 0; j < 8; j = j + 1) begin
+            dut.isr = 32'd0;
+            dut.isr_count = 5'd0;
+            direct_instruction(5'd4, 16'h3000 | (j << 8), 8'd0, 8'd0);
+            check32({24'b0, ((8'h5A >> j) & 8'h01)}, dut.isr,
+                    "IN pin sample -> ISR");
+            check(8'd1, dut.isr_count, "IN increments ISR count");
+        end
+
+        // ---- Test 28: level WAIT for low ----
+        $display("\n[Test 28] WAIT level low");
+        reset_dut();
+        prog[0] = 16'h2000;   // WAIT for pin 0 low
+        prog[1] = 16'h80F0;
+        prog[2] = 16'hF000;
+        load_prog(3);
+        uio_in[4] = 1'b1;
+        repeat (30) @(posedge clk); #1;
+        check(8'h00, uo_out, "WAIT low stalls while pin high");
+        uio_in[4] = 1'b0;
+        wait_for_out(8'h0F, 500);
+        check(8'h0F, uo_out, "WAIT low releases when pin falls");
+
+        // ---- Test 29: SET high pins and OUT pin routing ----
+        $display("\n[Test 29] High SET and OUT pin routing");
+        reset_dut();
+        direct_instruction(5'd4, 16'h8450, 8'd0, 8'd0); // SET pins[7:4] = 5
+        check(8'h50, uo_out, "SET high nibble");
+        check(8'h00, uio_out, "SET high leaves UIO outputs low");
+        for (j = 0; j < 8; j = j + 1) begin
+            dut.pin_out = 8'h00;
+            dut.osr = 32'h00000001;
+            dut.osr_count = 5'd1;
+            direct_instruction(5'd4, 16'h4000 | (j << 8), 8'd0, 8'd0);
+            check(8'h01 << j, uo_out, "OUT selects expected pin");
+            if (j < 4)
+                check(8'h10 << j, uio_out, "OUT maps low pin to UIO");
+            else
+                check(8'h00, uio_out, "OUT upper pin leaves UIO low");
+        end
 
         // ---- Summary ----
         $display("\n==========================================");
