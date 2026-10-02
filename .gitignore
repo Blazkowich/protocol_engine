@@ -1,0 +1,10 @@
+# Generated simulation outputs
+/sim.vvp
+/tb.vcd
+/build/
+/test/results.xml
+
+# Python and cocotb artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/

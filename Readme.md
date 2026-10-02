@@ -26,15 +26,15 @@
 
 ## 1. Overview
 
-| Property | Value |
-|---|---|
-| **Project name** | Protocol Engine State Machine (PESM) |
-| **Top module** | `protocol_engine` |
-| **Language** | Verilog-2001 / SystemVerilog-2012 |
-| **Target process** | IHP CMOS5L (130 nm) |
-| **Tile size** | 6×4 Tiny Tapeout tiles (~1002 µm × 432 µm) |
-| **Target clock** | 50 MHz |
-| **License** | Apache-2.0 |
+| Property           | Value                                      |
+| ------------------ | ------------------------------------------ |
+| **Project name**   | Protocol Engine State Machine (PESM)       |
+| **Top module**     | `protocol_engine`                          |
+| **Language**       | Verilog-2001 / SystemVerilog-2012          |
+| **Target process** | IHP CMOS5L (130 nm)                        |
+| **Tile size**      | 6×4 Tiny Tapeout tiles (~1002 µm × 432 µm) |
+| **Target clock**   | 50 MHz                                     |
+| **License**        | Apache-2.0                                 |
 
 **One-sentence description:** A tiny protocol-centric state machine with a programmable instruction set designed for reading pins, writing pins, counting cycles, and bit-banging communication protocols (UART, SPI, I2C, and others) in firmware.
 
@@ -87,47 +87,47 @@ This design borrows the best ideas from both and adds a few novel touches (atomi
 
 Every abbreviation used in this project, in alphabetical order.
 
-| Abbreviation | Full name | Meaning |
-|---|---|---|
-| **ASIC** | Application-Specific Integrated Circuit | A chip designed for one specific job, not a general-purpose CPU |
-| **CAN** | Controller Area Network | A multi-master serial protocol used in automotive and industrial systems |
-| **CMOS** | Complementary Metal-Oxide-Semiconductor | The transistor technology used to build most digital chips |
-| **CMOS5L** | (IHP process name) | The specific 130 nm process used by Tiny Tapeout's shuttle |
-| **CPU** | Central Processing Unit | A general-purpose processor |
-| **CRV** | Constrained Random Verification | A verification technique using randomized inputs under constraints |
-| **DUT** | Device Under Test | The circuit being verified |
-| **FIFO** | First In, First Out | A queue where data comes out in the order it went in |
-| **FSM** | Finite State Machine | A circuit that moves through a fixed set of states based on inputs |
-| **GDSII** | Graphic Data System II | The file format that describes chip layout for manufacturing |
-| **GPIO** | General-Purpose Input/Output | Pins that can be configured as inputs or outputs |
-| **I2C** | Inter-Integrated Circuit | A 2-wire serial protocol (also written I²C or IIC) |
-| **IHP** | Innovations for High Performance | The European foundry that fabricates Tiny Tapeout chips |
-| **IRQ** | Interrupt Request | A signal indicating that something needs attention |
-| **ISA** | Instruction Set Architecture | The complete set of instructions a processor understands |
-| **ISR** | Input Shift Register | A register that accumulates bits coming in from pins |
-| **JTAG** | Joint Test Action Group | A debugging and test protocol (IEEE 1149.1) |
-| **LEF** | Library Exchange Format | A file format describing abstract chip layout for place-and-route |
-| **LSB** | Least Significant Bit | The rightmost bit (weight 1 in a byte) |
-| **MSB** | Most Significant Bit | The leftmost bit (weight 128 in a byte) |
-| **NBA** | Non-Blocking Assignment | In Verilog, `<=`; updates happen at the end of the cycle |
-| **OE** | Output Enable | A signal that says "drive this pin" (1) or "listen" (0) |
-| **OpenRAM** | (proper noun) | An open-source SRAM compiler for chip designs |
-| **OSR** | Output Shift Register | A register that feeds bits out one at a time |
-| **PC** | Program Counter | The address of the next instruction to execute |
-| **PDK** | Process Design Kit | Files describing how to build chips in a specific foundry process |
-| **PESM** | Protocol Engine State Machine | This chip's architecture |
-| **PIO** | Programmable I/O | The RP2040's protocol engine subsystem |
-| **PRU** | Programmable Real-time Unit | TI's protocol engine subsystem |
-| **PS/2** | (proper noun) | An old keyboard/mouse serial protocol |
-| **RTL** | Register Transfer Level | The style of Verilog that describes hardware behavior |
-| **Sby** | SymbiYosys | An open-source formal verification tool |
-| **SPI** | Serial Peripheral Interface | A 4-wire serial protocol |
-| **SRAM** | Static Random-Access Memory | Memory that holds data as long as it's powered |
-| **SWD** | Serial Wire Debug | ARM's 2-wire debugging protocol |
-| **UART** | Universal Asynchronous Receiver/Transmitter | A 2-wire serial protocol (TX/RX) |
-| **USB** | Universal Serial Bus | The port you plug keyboards and phones into |
-| **VCD** | Value Change Dump | A file recording signal changes over time (used by GTKWave) |
-| **Verilog** | (proper noun) | A hardware description language |
+| Abbreviation | Full name                                   | Meaning                                                                  |
+| ------------ | ------------------------------------------- | ------------------------------------------------------------------------ |
+| **ASIC**     | Application-Specific Integrated Circuit     | A chip designed for one specific job, not a general-purpose CPU          |
+| **CAN**      | Controller Area Network                     | A multi-master serial protocol used in automotive and industrial systems |
+| **CMOS**     | Complementary Metal-Oxide-Semiconductor     | The transistor technology used to build most digital chips               |
+| **CMOS5L**   | (IHP process name)                          | The specific 130 nm process used by Tiny Tapeout's shuttle               |
+| **CPU**      | Central Processing Unit                     | A general-purpose processor                                              |
+| **CRV**      | Constrained Random Verification             | A verification technique using randomized inputs under constraints       |
+| **DUT**      | Device Under Test                           | The circuit being verified                                               |
+| **FIFO**     | First In, First Out                         | A queue where data comes out in the order it went in                     |
+| **FSM**      | Finite State Machine                        | A circuit that moves through a fixed set of states based on inputs       |
+| **GDSII**    | Graphic Data System II                      | The file format that describes chip layout for manufacturing             |
+| **GPIO**     | General-Purpose Input/Output                | Pins that can be configured as inputs or outputs                         |
+| **I2C**      | Inter-Integrated Circuit                    | A 2-wire serial protocol (also written I²C or IIC)                       |
+| **IHP**      | Innovations for High Performance            | The European foundry that fabricates Tiny Tapeout chips                  |
+| **IRQ**      | Interrupt Request                           | A signal indicating that something needs attention                       |
+| **ISA**      | Instruction Set Architecture                | The complete set of instructions a processor understands                 |
+| **ISR**      | Input Shift Register                        | A register that accumulates bits coming in from pins                     |
+| **JTAG**     | Joint Test Action Group                     | A debugging and test protocol (IEEE 1149.1)                              |
+| **LEF**      | Library Exchange Format                     | A file format describing abstract chip layout for place-and-route        |
+| **LSB**      | Least Significant Bit                       | The rightmost bit (weight 1 in a byte)                                   |
+| **MSB**      | Most Significant Bit                        | The leftmost bit (weight 128 in a byte)                                  |
+| **NBA**      | Non-Blocking Assignment                     | In Verilog, `<=`; updates happen at the end of the cycle                 |
+| **OE**       | Output Enable                               | A signal that says "drive this pin" (1) or "listen" (0)                  |
+| **OpenRAM**  | (proper noun)                               | An open-source SRAM compiler for chip designs                            |
+| **OSR**      | Output Shift Register                       | A register that feeds bits out one at a time                             |
+| **PC**       | Program Counter                             | The address of the next instruction to execute                           |
+| **PDK**      | Process Design Kit                          | Files describing how to build chips in a specific foundry process        |
+| **PESM**     | Protocol Engine State Machine               | This chip's architecture                                                 |
+| **PIO**      | Programmable I/O                            | The RP2040's protocol engine subsystem                                   |
+| **PRU**      | Programmable Real-time Unit                 | TI's protocol engine subsystem                                           |
+| **PS/2**     | (proper noun)                               | An old keyboard/mouse serial protocol                                    |
+| **RTL**      | Register Transfer Level                     | The style of Verilog that describes hardware behavior                    |
+| **Sby**      | SymbiYosys                                  | An open-source formal verification tool                                  |
+| **SPI**      | Serial Peripheral Interface                 | A 4-wire serial protocol                                                 |
+| **SRAM**     | Static Random-Access Memory                 | Memory that holds data as long as it's powered                           |
+| **SWD**      | Serial Wire Debug                           | ARM's 2-wire debugging protocol                                          |
+| **UART**     | Universal Asynchronous Receiver/Transmitter | A 2-wire serial protocol (TX/RX)                                         |
+| **USB**      | Universal Serial Bus                        | The port you plug keyboards and phones into                              |
+| **VCD**      | Value Change Dump                           | A file recording signal changes over time (used by GTKWave)              |
+| **Verilog**  | (proper noun)                               | A hardware description language                                          |
 
 ---
 
@@ -173,36 +173,36 @@ Every abbreviation used in this project, in alphabetical order.
 
 ### 5.2 Physical interface
 
-| Signal | Direction | Width | Purpose |
-|---|---|---|---|
-| `ui_in[3:0]` | Input | 4 | Protocol input pins 4–7 |
-| `uo_out` | Output | 8 | Mirrors the 8-bit protocol output latch; host FIFO reads temporarily select host data |
-| `uio_in[3:0]` | Input | 4 | Host loader/FIFO data, clock, mode, and enable |
-| `uio_in[7:4]` | Input | 4 | Protocol input pins 0–3 |
-| `uio_out[7:4]` | Output | 4 | Output values for protocol pins 0–3 |
-| `uio_oe[7:4]` | Output | 4 | Output enables for protocol pins 0–3 (1 = drive, 0 = release/listen) |
-| `ena` | Input | 1 | Enable (always 1 when powered) |
-| `clk` | Input | 1 | System clock (50 MHz typical) |
-| `rst_n` | Input | 1 | Active-low reset |
+| Signal         | Direction | Width | Purpose                                                                               |
+| -------------- | --------- | ----- | ------------------------------------------------------------------------------------- |
+| `ui_in[3:0]`   | Input     | 4     | Protocol input pins 4–7                                                               |
+| `uo_out`       | Output    | 8     | Mirrors the 8-bit protocol output latch; host FIFO reads temporarily select host data |
+| `uio_in[3:0]`  | Input     | 4     | Host loader/FIFO data, clock, mode, and enable                                        |
+| `uio_in[7:4]`  | Input     | 4     | Protocol input pins 0–3                                                               |
+| `uio_out[7:4]` | Output    | 4     | Output values for protocol pins 0–3                                                   |
+| `uio_oe[7:4]`  | Output    | 4     | Output enables for protocol pins 0–3 (1 = drive, 0 = release/listen)                  |
+| `ena`          | Input     | 1     | Enable (always 1 when powered)                                                        |
+| `clk`          | Input     | 1     | System clock (50 MHz typical)                                                         |
+| `rst_n`        | Input     | 1     | Active-low reset                                                                      |
 
 Logical protocol pins 0–3 map to bidirectional pads `uio[4:7]`; logical pins 4–7 are input-only and map to `ui_in[0:3]`. `uo_out[7:0]` mirrors the output latch. Host loader signals occupy `uio[0:3]` and are not protocol pins.
 
 ### 5.3 Internal state
 
-| Register | Width | Purpose |
-|---|---|---|
-| `pc` | 5 | Program counter (addresses 0–31) |
-| `instr` | 16 | Currently-executing instruction |
-| `x_reg`, `y_reg` | 8 each | General-purpose scratch |
-| `osr` | 32 | Output shift register |
-| `isr` | 32 | Input shift register |
-| `osr_count` | 5 | Bits remaining in OSR before refill |
-| `isr_count` | 5 | Bits accumulated in ISR before push |
-| `pin_out` | 8 | Value driven on pins |
-| `pin_oe` | 8 | Output enable per pin |
-| `delay_cnt` | 16 | Remaining delay cycles |
-| `state` | 2 | FSM state: S_FETCH, S_EXEC, S_DELAY |
-| `tx_fifo`, `rx_fifo` | 8×8 each | Data queues |
+| Register             | Width    | Purpose                             |
+| -------------------- | -------- | ----------------------------------- |
+| `pc`                 | 5        | Program counter (addresses 0–31)    |
+| `instr`              | 16       | Currently-executing instruction     |
+| `x_reg`, `y_reg`     | 8 each   | General-purpose scratch             |
+| `osr`                | 32       | Output shift register               |
+| `isr`                | 32       | Input shift register                |
+| `osr_count`          | 5        | Bits remaining in OSR before refill |
+| `isr_count`          | 5        | Bits accumulated in ISR before push |
+| `pin_out`            | 8        | Value driven on pins                |
+| `pin_oe`             | 8        | Output enable per pin               |
+| `delay_cnt`          | 16       | Remaining delay cycles              |
+| `state`              | 2        | FSM state: S_FETCH, S_EXEC, S_DELAY |
+| `tx_fifo`, `rx_fifo` | 8×8 each | Data queues                         |
 
 ### 5.4 Finite State Machine
 
@@ -233,10 +233,10 @@ The entire FSM only advances when `tick` is high. Fetch and execute each consume
 
 The clock divider is a 16-bit integer plus an 8-bit fractional accumulator (16.8 fixed-point). For nonzero integer divider `N`, it produces one-cycle `tick` pulses separated by `N` or `N+1` system clocks, averaging `N + F/256` clocks, where `F = cfg_clkdiv_frac`. With `N=0`, it emits one tick each system clock; sub-clock periods are not supported.
 
-| Register | Range | Effect |
-|---|---|---|
-| `cfg_clkdiv_int` | 0–65535 | Integer part of divider |
-| `cfg_clkdiv_frac` | 0–255 | Fractional part; accumulator carry adds one clock to selected intervals |
+| Register          | Range   | Effect                                                                  |
+| ----------------- | ------- | ----------------------------------------------------------------------- |
+| `cfg_clkdiv_int`  | 0–65535 | Integer part of divider                                                 |
+| `cfg_clkdiv_frac` | 0–255   | Fractional part; accumulator carry adds one clock to selected intervals |
 
 Example: at 50 MHz, a 9600-baud bit is 5208.33 system clocks. With two ticks per ordinary instruction, `cfg_clkdiv_int = 2604` and `cfg_clkdiv_frac = 43` produce approximately that bit period for consecutive output instructions. Verify timing for the actual program because fetches, stalls, and branches affect pin transitions.
 
@@ -246,7 +246,7 @@ Example: at 50 MHz, a 9600-baud bit is 5208.33 system clocks. With two ticks per
 
 **Autopush**: When the current instruction is `IN` and `isr_count >= cfg_push_thresh`, the engine automatically writes `isr[7:0]` to `rx_fifo[rx_wr]`.
 
-Both are gated on the *current* opcode so they don't fire during idle or `HALT` cycles.
+Both are gated on the _current_ opcode so they don't fire during idle or `HALT` cycles.
 
 ### 5.7 FIFOs
 
@@ -280,22 +280,22 @@ For `JMP`, the jump target is `{operand[3], side_set}`, giving a 5-bit target (0
 
 ### 6.2 Instruction list
 
-| Opcode | Mnemonic | Operand | Description |
-|---|---|---|---|
-| `0x0` | `NOP` | — | Do nothing |
-| `0x1` | `JMP` | variant | Jump (see §6.4) |
-| `0x2` | `WAIT` | pin/level | Wait until the selected logical protocol input matches the level or edge condition |
-| `0x3` | `IN` | pin index | Shift a selected logical protocol input into ISR |
-| `0x4` | `OUT` | pin/direction | Shift one OSR bit to a pin; `operand[3]` selects open-drain output-enable mode |
-| `0x5` | `PUSH` | — | Move ISR[7:0] into RX FIFO |
-| `0x6` | `PULL` | — | Move TX FIFO into OSR |
-| `0x7` | `MOV` | variant | Move between registers (see §6.5) |
-| `0x8` | `SET` | target | Set a target to `side_set` (see §6.6) |
-| `0x9` | `IRQ` | — | Set the sticky internal IRQ-pending flag (cleared by reset) |
-| `0xA` | `DELAY` | — | Wait for `{x_reg, y_reg}` ticks |
-| `0xB` | `TOGGLE` | — | XOR `pin_out[3:0]` with `side_set` |
-| `0xC` | `SAMPLE` | — | Atomically capture all logical protocol inputs into ISR |
-| `0xF` | `HALT` | — | Stop execution |
+| Opcode | Mnemonic | Operand       | Description                                                                        |
+| ------ | -------- | ------------- | ---------------------------------------------------------------------------------- |
+| `0x0`  | `NOP`    | —             | Do nothing                                                                         |
+| `0x1`  | `JMP`    | variant       | Jump (see §6.4)                                                                    |
+| `0x2`  | `WAIT`   | pin/level     | Wait until the selected logical protocol input matches the level or edge condition |
+| `0x3`  | `IN`     | pin index     | Shift a selected logical protocol input into ISR                                   |
+| `0x4`  | `OUT`    | pin/direction | Shift one OSR bit to a pin; `operand[3]` selects open-drain output-enable mode     |
+| `0x5`  | `PUSH`   | —             | Move ISR[7:0] into RX FIFO                                                         |
+| `0x6`  | `PULL`   | —             | Move TX FIFO into OSR                                                              |
+| `0x7`  | `MOV`    | variant       | Move between registers (see §6.5)                                                  |
+| `0x8`  | `SET`    | target        | Set a target to `side_set` (see §6.6)                                              |
+| `0x9`  | `IRQ`    | —             | Set the sticky internal IRQ-pending flag (cleared by reset)                        |
+| `0xA`  | `DELAY`  | —             | Wait for `{x_reg, y_reg}` ticks                                                    |
+| `0xB`  | `TOGGLE` | —             | XOR `pin_out[3:0]` with `side_set`                                                 |
+| `0xC`  | `SAMPLE` | —             | Atomically capture all logical protocol inputs into ISR                            |
+| `0xF`  | `HALT`   | —             | Stop execution                                                                     |
 
 For `OUT`, `operand[2:0]` selects the logical output pin. With `operand[3] = 0`, the selected OSR bit updates the output value. With `operand[3] = 1`, the output value is held low and the selected pin's output-enable becomes the inverse of the bit, implementing open-drain data. `cfg_shift_dir = 0` loads bytes into the low end of OSR and emits LSB first; `cfg_shift_dir = 1` loads bytes into the high end and emits MSB first. `OUT` with open-drain mode should target a pin outside any same-instruction side-set mask.
 
@@ -311,47 +311,47 @@ Set `cfg_side_count = 0` to disable side-set entirely. Configuration register 11
 
 ### 6.4 Jump variants (operand[2:0])
 
-| Operand | Meaning |
-|---|---|
-| `000`–`011` | Unconditional jump to `jump_tgt` |
-| `100` | `JMP X--`: if `X != 0`, decrement X and jump; else fall through |
-| `101` | `JMP Y--`: if `Y != 0`, decrement Y and jump; else fall through |
-| `110` | `JMP !X`: if `X == 0`, jump; else fall through |
-| `111` | `JMP !Y`: if `Y == 0`, jump; else fall through |
+| Operand     | Meaning                                                         |
+| ----------- | --------------------------------------------------------------- |
+| `000`–`011` | Unconditional jump to `jump_tgt`                                |
+| `100`       | `JMP X--`: if `X != 0`, decrement X and jump; else fall through |
+| `101`       | `JMP Y--`: if `Y != 0`, decrement Y and jump; else fall through |
+| `110`       | `JMP !X`: if `X == 0`, jump; else fall through                  |
+| `111`       | `JMP !Y`: if `Y == 0`, jump; else fall through                  |
 
 For `JMP X--` and `JMP Y--`, the target address must be **non-zero** (address 0 is the fall-through case).
 
 ### 6.5 MOV variants (operand[2:0])
 
-| Operand | Source | Destination |
-|---|---|---|
-| `000` | X | OSR |
-| `001` | OSR | X (low byte) |
-| `010` | Y | OSR |
-| `011` | OSR | Y (low byte) |
-| `100` | logical protocol input bus | ISR |
-| `101` | ISR | `pin_out` |
-| `110` | X | `pin_out` |
-| `111` | Y | `pin_out` |
+| Operand | Source                     | Destination  |
+| ------- | -------------------------- | ------------ |
+| `000`   | X                          | OSR          |
+| `001`   | OSR                        | X (low byte) |
+| `010`   | Y                          | OSR          |
+| `011`   | OSR                        | Y (low byte) |
+| `100`   | logical protocol input bus | ISR          |
+| `101`   | ISR                        | `pin_out`    |
+| `110`   | X                          | `pin_out`    |
+| `111`   | Y                          | `pin_out`    |
 
 ### 6.6 SET variants (operand[2:0])
 
-| Operand | Destination | Value |
-|---|---|---|
-| `000` | `pin_out[3:0]` | `side_set` |
-| `001` | X | `side_set` |
-| `010` | Y | `side_set` |
-| `011` | `pin_oe[3:0]` | `side_set` |
-| `100` | `pin_out[7:4]` | `side_set` |
+| Operand | Destination    | Value      |
+| ------- | -------------- | ---------- |
+| `000`   | `pin_out[3:0]` | `side_set` |
+| `001`   | X              | `side_set` |
+| `010`   | Y              | `side_set` |
+| `011`   | `pin_oe[3:0]`  | `side_set` |
+| `100`   | `pin_out[7:4]` | `side_set` |
 
 ### 6.7 WAIT variants (operand[1:0])
 
-| `side_set[0]` | `operand[0]` | Meaning |
-|---|---|---|
-| `0` | `0` | Wait until selected pin is low |
-| `0` | `1` | Wait until selected pin is high |
-| `1` | `0` | Wait for a falling edge |
-| `1` | `1` | Wait for a rising edge |
+| `side_set[0]` | `operand[0]` | Meaning                         |
+| ------------- | ------------ | ------------------------------- |
+| `0`           | `0`          | Wait until selected pin is low  |
+| `0`           | `1`          | Wait until selected pin is high |
+| `1`           | `0`          | Wait for a falling edge         |
+| `1`           | `1`          | Wait for a rising edge          |
 
 The pin index is `operand[3:1]`, giving all 8 logical protocol inputs: pins 0–3 sample `uio_in[7:4]`, and pins 4–7 sample `ui_in[3:0]`. Edge transitions observed on `clk` are latched until a matching edge-wait consumes them, so a short pulse is not lost while the instruction engine is between ticks. For `WAIT`, `side_set[0]` selects edge mode and is not driven onto the output pins.
 
@@ -369,20 +369,20 @@ This is useful for spacing out operations without an explicit `DELAY` instructio
 
 Configuration registers are written by the host loader (§8.2). All default to safe values after reset.
 
-| Address | Register | Width | Default | Purpose |
-|---|---|---|---|---|
-| 0 | `cfg_clkdiv_int[7:0]` | 8 | 0 | Clock divider integer low byte |
-| 1 | `cfg_clkdiv_int[15:8]` | 8 | 0 | Clock divider integer high byte |
-| 2 | `cfg_clkdiv_frac` | 8 | 0 | Clock divider fraction |
-| 3 | `cfg_wrap_top` | 5 | 31 | Loop end index |
-| 4 | `cfg_wrap_bottom` | 5 | 0 | Loop start index |
-| 5 | `cfg_shift_dir` | 2 | 0 | 0 = LSB-first/right shift, 1 = MSB-first/left shift |
-| 6 | `cfg_autopull` | 1 | 0 | Enable autopull |
-| 7 | `cfg_autopush` | 1 | 0 | Enable autopush |
-| 8 | `cfg_pull_thresh` | 5 | 0 | Pull when `osr_count <= this` |
-| 9 | `cfg_push_thresh` | 5 | 31 | Push when `isr_count >= this` |
-| 10 | `cfg_side_count` | 4 | 0 | Number of side-set bits (0–4) |
-| 11 | `cfg_side_oe` | 1 | 0 | Side-set target: 0 = output values, 1 = output enables |
+| Address | Register               | Width | Default | Purpose                                                |
+| ------- | ---------------------- | ----- | ------- | ------------------------------------------------------ |
+| 0       | `cfg_clkdiv_int[7:0]`  | 8     | 0       | Clock divider integer low byte                         |
+| 1       | `cfg_clkdiv_int[15:8]` | 8     | 0       | Clock divider integer high byte                        |
+| 2       | `cfg_clkdiv_frac`      | 8     | 0       | Clock divider fraction                                 |
+| 3       | `cfg_wrap_top`         | 5     | 31      | Loop end index                                         |
+| 4       | `cfg_wrap_bottom`      | 5     | 0       | Loop start index                                       |
+| 5       | `cfg_shift_dir`        | 2     | 0       | 0 = LSB-first/right shift, 1 = MSB-first/left shift    |
+| 6       | `cfg_autopull`         | 1     | 0       | Enable autopull                                        |
+| 7       | `cfg_autopush`         | 1     | 0       | Enable autopush                                        |
+| 8       | `cfg_pull_thresh`      | 5     | 0       | Pull when `osr_count <= this`                          |
+| 9       | `cfg_push_thresh`      | 5     | 31      | Push when `isr_count >= this`                          |
+| 10      | `cfg_side_count`       | 4     | 0       | Number of side-set bits (0–4)                          |
+| 11      | `cfg_side_oe`          | 1     | 0       | Side-set target: 0 = output values, 1 = output enables |
 
 ---
 
@@ -392,11 +392,11 @@ The host loader uses 4 pins of `uio_in` to load instructions and configuration d
 
 ### 8.1 Pin assignments
 
-| Pin | Name | Purpose |
-|---|---|---|
-| `uio_in[0]` | DATA | One bit of data (MSB first) |
-| `uio_in[1]` | CLK | Rising edge latches DATA |
-| `uio_in[2]` | MODE | 0 = load imem, 1 = load config |
+| Pin         | Name   | Purpose                        |
+| ----------- | ------ | ------------------------------ |
+| `uio_in[0]` | DATA   | One bit of data (MSB first)    |
+| `uio_in[1]` | CLK    | Rising edge latches DATA       |
+| `uio_in[2]` | MODE   | 0 = load imem, 1 = load config |
 | `uio_in[3]` | ENABLE | 1 = loader active, 0 = run CPU |
 
 ### 8.2 Loading a program
@@ -514,15 +514,15 @@ This design uses **three layers** of verification. The competition explicitly we
 
 `test/tb.v` contains 24 directed test groups and 77 checks, including:
 
-| Test groups | Coverage |
-|---|---|
-| 1–4 | Reset, `SET`, `TOGGLE`, and output enable |
-| 5–12 | Delay, level `WAIT`, shifts, FIFOs, jumps, sampling, divider, and autopull |
-| 13 | Seeded directed stress |
-| 14–16 | UART 8N1 byte, SPI mode 0 byte, I2C open-drain byte/ACK/STOP |
-| 17–20 | Wrap, IRQ latch, host FIFO, simultaneous transfers |
-| 21–22 | Latched rising- and falling-edge `WAIT`, including a short pulse |
-| 23–24 | Full TX/RX FIFO replacement and fractional divider periods |
+| Test groups | Coverage                                                                   |
+| ----------- | -------------------------------------------------------------------------- |
+| 1–4         | Reset, `SET`, `TOGGLE`, and output enable                                  |
+| 5–12        | Delay, level `WAIT`, shifts, FIFOs, jumps, sampling, divider, and autopull |
+| 13          | Seeded directed stress                                                     |
+| 14–16       | UART 8N1 byte, SPI mode 0 byte, I2C open-drain byte/ACK/STOP               |
+| 17–20       | Wrap, IRQ latch, host FIFO, simultaneous transfers                         |
+| 21–22       | Latched rising- and falling-edge `WAIT`, including a short pulse           |
+| 23–24       | Full TX/RX FIFO replacement and fractional divider periods                 |
 
 ### 10.2 Constrained-random tests
 
@@ -538,7 +538,7 @@ This covers a constrained instruction subset; it is not yet a randomized referen
 
 ### 10.3 Formal verification
 
-*The current properties are standalone models, not proofs of this RTL.*
+_The current properties are standalone models, not proofs of this RTL._
 
 The files in `formal/` currently check standalone delay and level-WAIT models; they are not bound to `protocol_engine`. Formal proofs of the RTL, including edge-WAIT behavior, remain incomplete.
 
@@ -559,15 +559,17 @@ endproperty
 ### 10.4 Running the tests
 
 ```bash
-# Compile
-iverilog -g2012 -o sim.vvp src/protocol_engine.v test/tb.v
+# Directed Icarus regression (default)
+python test/run_tests.py
 
-# Run
-vvp sim.vvp
+# Directed regression plus cocotb reference-model test
+python test/run_tests.py --all
 
-# View waveforms
-gtkwave tb.vcd
+# Install the optional cocotb dependency first
+python -m pip install -r test/requirements-test.txt
 ```
+
+On Windows, the PowerShell wrapper offers the same modes: `.\test\run_tests.ps1` for directed tests and `.\test\run_tests.ps1 -All` for both suites. Icarus Verilog (`iverilog` and `vvp`) must be installed and available on `PATH`. The runner keeps simulator outputs in a temporary directory. Use the direct compile/run commands in §11 when a persistent waveform is needed.
 
 Expected output:
 
@@ -618,13 +620,13 @@ Add these signals to the wave window:
 
 ### 11.4 Debugging tips
 
-| Symptom | Likely cause |
-|---|---|
-| Output stuck at 0 | CPU may still be in load mode (`uio_in[3] = 1`) |
-| Program doesn't start | Reset not released, or `tick` never fires |
-| Instruction decode wrong | Check encoding against §6.1 |
-| `JMP` goes to wrong address | Jump target is `{operand[3], side_set}` |
-| Program hangs | `HALT` reached, or `WAIT` never satisfied |
+| Symptom                     | Likely cause                                    |
+| --------------------------- | ----------------------------------------------- |
+| Output stuck at 0           | CPU may still be in load mode (`uio_in[3] = 1`) |
+| Program doesn't start       | Reset not released, or `tick` never fires       |
+| Instruction decode wrong    | Check encoding against §6.1                     |
+| `JMP` goes to wrong address | Jump target is `{operand[3], side_set}`         |
+| Program hangs               | `HALT` reached, or `WAIT` never satisfied       |
 
 ---
 
@@ -722,7 +724,7 @@ The repository records the 6×4 IHP CMOS5L target and 50 MHz clock constraints. 
 
 ## 13. Design Decisions & Rationale
 
-This section documents *why* certain choices were made, in case you're wondering or want to extend the design.
+This section documents _why_ certain choices were made, in case you're wondering or want to extend the design.
 
 ### 13.1 Why not use a general-purpose CPU?
 
@@ -743,6 +745,7 @@ Integer dividers can't hit every baud rate exactly. The 8-bit fractional accumul
 ### 13.5 Why JMP target = {operand[3], side_set}?
 
 This is a compromise. Ideally, the jump target would be a full 5-bit field independent of side-set. But 16 bits is tight, and we wanted:
+
 - 4 bits for opcode
 - 4 bits for operand (needed for JMP variants, MOV variants, SET variants)
 - Some bits for side-set
@@ -862,14 +865,14 @@ A condensed status based on the RTL and current test evidence. Simulation does n
 
 ### Tools used in this project
 
-| Tool | Purpose | URL |
-|---|---|---|
-| Icarus Verilog | Simulation | iverilog.icarus.com |
-| GTKWave | Waveform viewer | gtkwave.sourceforge.net |
-| Yosys | Synthesis | yosyshq.net/yosys |
-| SymbiYosys | Formal verification | yosyshq.readthedocs.io/projects/sby |
-| cocotb | Python testbenches | cocotb.org |
-| LibreLane | Place & route | librelane.readthedocs.io |
-| Tiny Tapeout | Manufacturing | tinytapeout.com |
+| Tool           | Purpose             | URL                                 |
+| -------------- | ------------------- | ----------------------------------- |
+| Icarus Verilog | Simulation          | iverilog.icarus.com                 |
+| GTKWave        | Waveform viewer     | gtkwave.sourceforge.net             |
+| Yosys          | Synthesis           | yosyshq.net/yosys                   |
+| SymbiYosys     | Formal verification | yosyshq.readthedocs.io/projects/sby |
+| cocotb         | Python testbenches  | cocotb.org                          |
+| LibreLane      | Place & route       | librelane.readthedocs.io            |
+| Tiny Tapeout   | Manufacturing       | tinytapeout.com                     |
 
 ---

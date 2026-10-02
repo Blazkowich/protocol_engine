@@ -1,5 +1,7 @@
 import random
+import os
 from pathlib import Path
+import tempfile
 
 import cocotb
 from cocotb.clock import Clock
@@ -77,22 +79,31 @@ def run():
 
     project_dir = Path(__file__).resolve().parents[1]
     test_dir = Path(__file__).resolve().parent
-    build_dir = Path("/tmp/pesm_cocotb_build")
-    runner = get_runner("icarus")
-    runner.build(
-        sources=[project_dir / "src" / "protocol_engine.v"],
-        hdl_toplevel="protocol_engine",
-        build_dir=build_dir,
-        always=True,
-    )
-    runner.test(
-        hdl_toplevel="protocol_engine",
-        test_module=Path(__file__).stem,
-        test_dir=test_dir,
-        build_dir=build_dir,
-        results_xml=str(build_dir / "results.xml"),
-        extra_env={"PYTHONDONTWRITEBYTECODE": "1"},
-    )
+
+    def run_in_build_dir(build_dir):
+        build_dir.mkdir(parents=True, exist_ok=True)
+        runner = get_runner("icarus")
+        runner.build(
+            sources=[project_dir / "src" / "protocol_engine.v"],
+            hdl_toplevel="protocol_engine",
+            build_dir=build_dir,
+            always=True,
+        )
+        runner.test(
+            hdl_toplevel="protocol_engine",
+            test_module=Path(__file__).stem,
+            test_dir=test_dir,
+            build_dir=build_dir,
+            results_xml=str(build_dir / "results.xml"),
+            extra_env={"PYTHONDONTWRITEBYTECODE": "1"},
+        )
+
+    configured_build_dir = os.environ.get("PESM_COCOTB_BUILD_DIR")
+    if configured_build_dir:
+        run_in_build_dir(Path(configured_build_dir))
+    else:
+        with tempfile.TemporaryDirectory(prefix="protocol_engine_cocotb_") as temp_dir:
+            run_in_build_dir(Path(temp_dir))
 
 
 if __name__ == "__main__":

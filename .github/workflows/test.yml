@@ -1,0 +1,25 @@
+name: RTL tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  simulation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Icarus Verilog
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes iverilog
+      - name: Install Python test dependencies
+        run: python -m pip install -r test/requirements-test.txt
+      - name: Run directed and cocotb tests
+        run: python test/run_tests.py --all
