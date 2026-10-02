@@ -7,17 +7,39 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import FallingEdge, RisingEdge, Timer
 
-@cocotb.test()
-async def constrained_random_stress(dut):
-    """Compare random terminating pin operations with a golden model."""
-    cocotb.start_soon(Clock(dut.clk, 20, unit="step").start())
-    dut.rst_n.value = 0
+
+def _hdl_top_name() -> str:
+    """Name of the module cocotb was launched with as hdl_toplevel."""
+    top = cocotb.top
+    return getattr(top, "_name", "") if top is not None else ""
+
+
+async def _reset_dut(dut):
+    """Hold reset for a few clean clock edges, then release it.
+
+    Works under either HDL top:
+      * `tb`                          -> tb.v drives clk, we just wait
+      * `tt_um_protocol_engine`       -> cocotb drives clk from the test
+    """
+    if _hdl_top_name() != "tb":
+        # Only start a clock when the DUT itself is the HDL top.
+        cocotb.start_soon(Clock(dut.clk, 20, unit="step").start())
+
     dut.ena.value = 1
     dut.ui_in.value = 0
     dut.uio_in.value = 0
-    await Timer(100, unit="step")
+    dut.rst_n.value = 0
+    for _ in range(5):
+        await RisingEdge(dut.clk)
     dut.rst_n.value = 1
-    await Timer(40, unit="step")
+    for _ in range(2):
+        await RisingEdge(dut.clk)
+
+
+@cocotb.test()
+async def constrained_random_stress(dut):
+    """Compare random terminating pin operations with a golden model."""
+    await _reset_dut(dut)
 
     rng = random.Random(42)
     program = []
@@ -38,6 +60,7 @@ async def constrained_random_stress(dut):
         expected_trace.append(expected_pin_out)
     program.append(0xF000)
 
+    # Load the program through the real host-loader protocol.
     await FallingEdge(dut.clk)
     dut.uio_in.value = 0x08
     await RisingEdge(dut.clk)
