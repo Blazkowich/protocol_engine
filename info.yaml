@@ -9,29 +9,38 @@ project:
   top_module: "tt_um_protocol_engine"
   source_files:
     - "tt_um_protocol_engine.v"
-  pinout:
-    ui[0]: "PROTO_IN4"
-    ui[1]: "PROTO_IN5"
-    ui[2]: "PROTO_IN6"
-    ui[3]: "PROTO_IN7"
-    ui[4]: ""
-    ui[5]: ""
-    ui[6]: ""
-    ui[7]: ""
-    uo[0]: "PIN0"
-    uo[1]: "PIN1"
-    uo[2]: "PIN2"
-    uo[3]: "PIN3"
-    uo[4]: "PIN4"
-    uo[5]: "PIN5"
-    uo[6]: "PIN6"
-    uo[7]: "PIN7"
-    uio[0]: "HOST_DATA"
-    uio[1]: "HOST_CLK"
-    uio[2]: "HOST_MODE"
-    uio[3]: "HOST_EN"
-    uio[4]: "PROTO_IO0"
-    uio[5]: "PROTO_IO1"
-    uio[6]: "PROTO_IO2"
-    uio[7]: "PROTO_IO3"
+
+# The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
+pinout:
+  # Inputs
+  ui[0]: "HOST_TXD0 / PROTO_IN4"
+  ui[1]: "HOST_TXD1 / PROTO_IN5"
+  ui[2]: "HOST_TXD2 / PROTO_IN6"
+  ui[3]: "HOST_TXD3 / PROTO_IN7"
+  ui[4]: "HOST_TXD4"
+  ui[5]: "HOST_TXD5"
+  ui[6]: "HOST_TXD6"
+  ui[7]: "HOST_TXD7"
+
+  # Outputs
+  uo[0]: "PROTO_OUT0 / HOST_RXD0"
+  uo[1]: "PROTO_OUT1 / HOST_RXD1"
+  uo[2]: "PROTO_OUT2 / HOST_RXD2"
+  uo[3]: "PROTO_OUT3 / HOST_RXD3"
+  uo[4]: "PROTO_OUT4 / HOST_RXD4"
+  uo[5]: "PROTO_OUT5 / HOST_RXD5"
+  uo[6]: "PROTO_OUT6 / HOST_RXD6"
+  uo[7]: "PROTO_OUT7 / HOST_RXD7"
+
+  # Bidirectional pins
+  uio[0]: "HOST_DATA / LOAD_DIN"
+  uio[1]: "HOST_CLK / LOAD_CLK"
+  uio[2]: "HOST_MODE / LOAD_SEL"
+  uio[3]: "LOAD_EN"
+  uio[4]: "PROTO_IO0"
+  uio[5]: "PROTO_IO1"
+  uio[6]: "PROTO_IO2"
+  uio[7]: "PROTO_IO3"
+
+# Do not change!
 yaml_version: 6
