@@ -12,7 +12,7 @@ module tb;
     reg        clk    = 1'b0;
     reg        rst_n  = 1'b0;
 
-    protocol_engine dut (
+    tt_um_protocol_engine dut (
         .ui_in(ui_in), .uo_out(uo_out),
         .uio_in(uio_in), .uio_out(uio_out), .uio_oe(uio_oe),
         .ena(ena), .clk(clk), .rst_n(rst_n)

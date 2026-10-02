@@ -2,7 +2,7 @@ name: fpga
 
 on:
   push:
-    branches: feat/reorg_1
+    branches: none
   workflow_dispatch:
 
 jobs:

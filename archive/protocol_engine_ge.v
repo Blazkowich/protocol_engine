@@ -11,7 +11,7 @@
 `default_nettype none 
 
 // 'module' არის კოდის ძირითადი ბლოკი, როგორც 'class' ან 'function' პროგრამირებაში. აქ ვიწყებთ "tt_um_protocol_engine"-ის აღწერას.[cite: 1]
-module protocol_engine (
+module tt_um_protocol_engine (
     input  wire [7:0] ui_in,    // 8-ბიტიანი შემავალი სიგნალები (Input) მომხმარებლისგან[cite: 1]
     output wire [7:0] uo_out,   // 8-ბიტიანი გამომავალი სიგნალები (Output) მომხმარებლისკენ[cite: 1]
     input  wire [7:0] uio_in,   // 8-ბიტიანი ორმხრივი (in/out) შემავალი ნაწილი[cite: 1]
